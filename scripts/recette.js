@@ -140,7 +140,7 @@ async function resetTasks(token) {
 
   const invalidCases = [
     ['PATCH vide {}', 'PATCH', `/tasks/${taskId}`, {}],
-    ['PATCH champ inconnu', 'PATCH', `/tasks/${taskId}`, { priority: 'high' }],
+    ['PATCH champ inconnu', 'PATCH', `/tasks/${taskId}`, { tags: ['urgent'] }],
     ['PATCH ownerId', 'PATCH', `/tasks/${taskId}`, { ownerId: '507f1f77bcf86cd799439011' }],
     ['PATCH id', 'PATCH', `/tasks/${taskId}`, { id: '507f1f77bcf86cd799439011' }],
     ['PATCH statut invalide', 'PATCH', `/tasks/${taskId}`, { status: 'archived' }],
@@ -187,6 +187,29 @@ async function resetTasks(token) {
 
   const unknownRoute = await call('GET', '/inconnue');
   report('Route inconnue → 404 au format {"error":{"code","message"}}', isError(unknownRoute, 404, 'NOT_FOUND'), String(unknownRoute.status));
+
+  // --- Bonus B1 : priorité, filtres, compteurs ---
+  report('B1 : priority vaut medium par défaut sur la tâche créée', created.json?.priority === 'medium', String(created.json?.priority));
+  const highTask = await call('POST', '/tasks', { token: tokenA, body: { title: 'Urgente', status: 'todo', priority: 'high', dueDate: '2000-01-01' } });
+  report('B1 : POST avec priority "high" → 201', highTask.status === 201 && highTask.json?.priority === 'high', String(highTask.status));
+  const badPriority = await call('POST', '/tasks', { token: tokenA, body: { title: 'x', status: 'todo', priority: 'urgent' } });
+  report('B1 : priority "urgent" → 400 INVALID_INPUT', isError(badPriority, 400, 'INVALID_INPUT'), String(badPriority.status));
+  const filterDone = await call('GET', '/tasks?status=done', { token: tokenA });
+  report('B1 : ?status=done ne renvoie que des tâches done', filterDone.status === 200 && filterDone.json.items.length > 0 && filterDone.json.items.every((t) => t.status === 'done'));
+  const filterHigh = await call('GET', '/tasks?priority=high', { token: tokenA });
+  report('B1 : ?priority=high renvoie la tâche urgente uniquement', filterHigh.status === 200 && filterHigh.json.items.map((t) => t.id).join() === highTask.json.id);
+  const overdue = await call('GET', '/tasks?due=overdue', { token: tokenA });
+  report('B1 : ?due=overdue contient la tâche échue en 2000 et pas la tâche terminée', overdue.status === 200 && overdue.json.items.some((t) => t.id === highTask.json.id) && !overdue.json.items.some((t) => t.id === taskId));
+  const badFilter = await call('GET', '/tasks?due=yesterday', { token: tokenA });
+  const unknownParam = await call('GET', '/tasks?page=1', { token: tokenA });
+  report('B1 : filtre hors liste → 400 INVALID_INPUT', isError(badFilter, 400, 'INVALID_INPUT'), String(badFilter.status));
+  report('B1 : paramètre inconnu → 400 INVALID_INPUT', isError(unknownParam, 400, 'INVALID_INPUT'), String(unknownParam.status));
+  const stats = await call('GET', '/tasks/stats', { token: tokenA });
+  const statsOk = stats.status === 200 && stats.json?.total === 2 && stats.json.byStatus?.done === 1 && stats.json.byPriority?.high === 1 && stats.json.overdue === 1;
+  report('B1 : GET /tasks/stats → total 2, done 1, high 1, overdue 1', statsOk, JSON.stringify(stats.json));
+  const statsB = await call('GET', '/tasks/stats', { token: tokenB });
+  report('B1 : les compteurs de B ne voient pas les tâches de A', statsB.status === 200 && statsB.json?.total === 0, JSON.stringify(statsB.json));
+  await call('DELETE', `/tasks/${highTask.json.id}`, { token: tokenA });
 
   // --- Bilan ---
   const failed = results.filter((r) => !r.ok);

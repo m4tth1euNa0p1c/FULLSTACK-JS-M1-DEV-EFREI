@@ -21,4 +21,9 @@ function isCivilDate(value) {
   );
 }
 
-module.exports = { isCivilDate };
+/** Date civile du jour côté serveur (UTC), au format YYYY-MM-DD. */
+function todayCivilDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+module.exports = { isCivilDate, todayCivilDate };

@@ -1,12 +1,13 @@
 const { invalidInput } = require('../utils/errors');
 const { isCivilDate } = require('../utils/civilDate');
-const { TASK_STATUSES } = require('../models/Task');
+const { TASK_STATUSES, TASK_PRIORITIES } = require('../models/Task');
 
 const TITLE_MAX = 120;
 const DESCRIPTION_MAX = 1000;
+const DEFAULT_PRIORITY = 'medium';
 
 // Seuls ces champs sont pilotables par le client. id et ownerId sont réservés au serveur.
-const ALLOWED_FIELDS = ['title', 'status', 'description', 'dueDate'];
+const ALLOWED_FIELDS = ['title', 'status', 'priority', 'description', 'dueDate'];
 const FORBIDDEN_FIELDS = ['id', '_id', 'ownerId'];
 
 function isPlainObject(value) {
@@ -43,6 +44,13 @@ const fieldValidators = {
     }
     return value;
   },
+  // Bonus B1 : priorité facultative, parmi low, medium, high.
+  priority(value) {
+    if (typeof value !== 'string' || !TASK_PRIORITIES.includes(value)) {
+      throw invalidInput(`La priorité doit valoir ${TASK_PRIORITIES.join(', ')}`);
+    }
+    return value;
+  },
   description(value) {
     if (typeof value !== 'string') {
       throw invalidInput('La description doit être une chaîne de caractères');
@@ -61,7 +69,7 @@ const fieldValidators = {
   },
 };
 
-/** Corps d'un POST /api/tasks : title et status obligatoires, description et dueDate facultatifs. */
+/** Corps d'un POST /api/tasks : title et status obligatoires ; priority, description et dueDate facultatifs. */
 function validateTaskCreate(body) {
   if (!isPlainObject(body)) throw invalidInput('Le corps de la requête doit être un objet JSON');
   checkFields(body);
@@ -71,6 +79,7 @@ function validateTaskCreate(body) {
   return {
     title: fieldValidators.title(body.title),
     status: fieldValidators.status(body.status),
+    priority: body.priority === undefined ? DEFAULT_PRIORITY : fieldValidators.priority(body.priority),
     description: body.description === undefined ? '' : fieldValidators.description(body.description),
     dueDate: body.dueDate === undefined ? null : fieldValidators.dueDate(body.dueDate),
   };
@@ -89,4 +98,11 @@ function validateTaskPatch(body) {
   return changes;
 }
 
-module.exports = { validateTaskCreate, validateTaskPatch, ALLOWED_FIELDS, TITLE_MAX, DESCRIPTION_MAX };
+module.exports = {
+  validateTaskCreate,
+  validateTaskPatch,
+  ALLOWED_FIELDS,
+  TITLE_MAX,
+  DESCRIPTION_MAX,
+  DEFAULT_PRIORITY,
+};

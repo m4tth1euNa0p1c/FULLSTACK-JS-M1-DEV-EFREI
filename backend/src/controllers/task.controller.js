@@ -1,8 +1,11 @@
 const taskService = require('../services/task.service');
 const { validateTaskCreate, validateTaskPatch } = require('../validators/task.validator');
+const { validateTaskListQuery, validateStatsQuery } = require('../validators/taskQuery.validator');
 
 async function list(req, res) {
-  const items = await taskService.listTasks(req.user.id);
+  // Bonus B1 : filtres facultatifs (status, priority, due, today). Sans paramètre : toutes les tâches.
+  const filters = validateTaskListQuery(req.query);
+  const items = await taskService.listTasks(req.user.id, filters);
   res.status(200).json({ items });
 }
 
@@ -28,4 +31,11 @@ async function remove(req, res) {
   res.status(204).end();
 }
 
-module.exports = { list, create, getOne, update, remove };
+// Bonus B1 : compteurs du compte connecté.
+async function stats(req, res) {
+  const { today } = validateStatsQuery(req.query);
+  const result = await taskService.getTaskStats(req.user.id, today);
+  res.status(200).json(result);
+}
+
+module.exports = { list, create, getOne, update, remove, stats };
