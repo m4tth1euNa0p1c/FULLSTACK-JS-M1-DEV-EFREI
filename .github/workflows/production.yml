@@ -28,7 +28,7 @@ jobs:
       api_image: ${{ steps.names.outputs.api }}
       web_image: ${{ steps.names.outputs.web }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Noms d'images (GHCR exige des minuscules)
         id: names
@@ -89,7 +89,7 @@ jobs:
       AR_API: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/taskflow/taskflow-api
       AR_WEB: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/taskflow/taskflow-web
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Authentification Google Cloud (Workload Identity Federation, sans clé)
         uses: google-github-actions/auth@v2
@@ -142,7 +142,7 @@ jobs:
     if: needs.deploy.result == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 20
