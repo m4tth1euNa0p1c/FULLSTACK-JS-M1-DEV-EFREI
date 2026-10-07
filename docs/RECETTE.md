@@ -68,6 +68,18 @@ Critères d'acceptation définis dans le README (section 10) ; chaque point ci-d
 - [x] Les cinq routes de base et la suite de tests du MVP passent toujours — `npm test` : 145 tests.
 - [x] Interface : sélecteur de priorité, pastille de priorité (liste et détail), compteurs, barre de filtres reflétée dans l'URL, date locale envoyée en `today` — **[navigateur]**.
 
+## Bonus B4 : statistiques hebdomadaires (après B1)
+
+Critères d'acceptation et calcul documentés dans le README (section 10) ; chaque point ci-dessous a été exécuté.
+
+- [x] `completedAt` est posé au passage à `done`, conservé tant que la tâche reste terminée, remis à `null` à la réouverture, refusé en entrée (400) — **[script]** et `tests/tasks.bonus-b4.test.js`.
+- [x] `GET /api/tasks/stats/weekly` renvoie `weeks`, `today`, `tzOffset`, `series`, `overall`, `trend` ; 8 semaines par défaut ; bornes 1 et 26 — **[script]** (`weeks=4`) et tests.
+- [x] Définitions `created` / `completed` / `open` / `completionRate` respectées sur un scénario de référence antidaté, taux borné à [0, 1], semaines sans donnée à `null` — `tests/weeklyStats.unit.test.js` et `tests/tasks.bonus-b4.test.js`.
+- [x] Fuseau horaire : une tâche terminée le dimanche à 22 h 30 UTC compte le lundi avec `tzOffset=-120` — tests unitaires et API.
+- [x] Paramètres invalides (`weeks=0`, `weeks=27`, `today` impossible, `tzOffset` hors plage, paramètre inconnu) → 400 ; sans JWT → 401 — **[script]** et tests.
+- [x] Isolation A/B : les statistiques de B ne voient pas les tâches de A — **[script]** et tests.
+- [x] Interface : lien « Statistiques », chiffres clés, graphique à 8 barres (4/12/26 au choix, reflété dans l'URL), info-bulles accessibles, tableau détaillé, « Terminée le » dans le détail — **[navigateur]**.
+
 ## Résultats de la recette du 7 octobre 2026
 
 Environnement : Windows 11, Node.js 20.19.5, npm 11.6.4, MongoDB 7 (Docker `taskflow-mongo`), Chrome (parcours navigateur).
@@ -76,12 +88,13 @@ Environnement : Windows 11, Node.js 20.19.5, npm 11.6.4, MongoDB 7 (Docker `task
 | --- | --- |
 | `npm run lint --prefix backend` | OK, 0 erreur |
 | `npm run lint --prefix frontend` | OK, 0 erreur |
-| `npm test --prefix backend` | 8 suites, **145 tests OK** en ~10 s (base MongoDB en mémoire), dont 37 pour le bonus B1 |
-| `npm run build --prefix frontend` | OK (`dist/` : index.html, CSS 6 ko, JS 282 ko / 88 ko gzip) |
-| `node scripts/recette.js` | **52/52 points OK** (42 MVP + 10 bonus B1) |
+| `npm test --prefix backend` | 10 suites, **181 tests OK** en ~12 s (base MongoDB en mémoire), dont 37 pour le bonus B1 et 36 pour le bonus B4 |
+| `npm run build --prefix frontend` | OK (`dist/` : index.html, CSS 8 ko, JS 288 ko / 90 ko gzip) |
+| `node scripts/recette.js` | **60/60 points OK** (42 MVP + 10 bonus B1 + 8 bonus B4) |
 | Redémarrage de l'API puis relecture de la tâche conservée | HTTP 200, mêmes données (`id 6ac648b33df272e2887f5777`, titre « Préparer la démo », statut `done`) |
 | Mutation : suppression du filtre `ownerId` dans `task.service.js` | 6 des 11 tests de `tasks.isolation.test.js` échouent, puis repassent après restauration |
 | Parcours navigateur (inscription, erreurs 409/401, création, détail, modification, rechargement, annulation puis confirmation de suppression, tâche supprimée → « introuvable », mobile 375 px, Tab/Entrée/focus visible, jeton falsifié → « session expirée », reconnexion, déconnexion) | 30/30 vérifications OK |
-| Parcours navigateur bonus B1 (priorité haute à la création, pastille dans la liste et le détail, 5 compteurs, filtres statut/priorité/échéance, URL `?status=…`, `today=` envoyé à l'API, réinitialisation) | 10/10 vérifications OK (40/40 au total) |
+| Parcours navigateur bonus B1 (priorité haute à la création, pastille dans la liste et le détail, 5 compteurs, filtres statut/priorité/échéance, URL `?status=…`, `today=` envoyé à l'API, réinitialisation) | 10/10 vérifications OK |
+| Parcours navigateur bonus B4 (« Terminée le » dans le détail, page Statistiques : 8 barres, taux global, description accessible de la barre courante, tableau de 8 lignes, période 4 semaines reflétée dans l'URL) | 6/6 vérifications OK (46/46 au total) |
 
-Version recettée (MVP seul) : commit `bf16ad4029aa82747918291826aeaec950804631`, tag `rendu-v1`. Version recettée (MVP + bonus B1) : commit `49fbb49cc4fd584e99413bfa7bef0191f762b34a` (les commits suivants ne touchent que la documentation), tag `rendu-v2` (`git rev-list -n 1 rendu-v2`).
+Versions recettées : MVP seul → commit `bf16ad4029aa82747918291826aeaec950804631`, tag `rendu-v1` ; MVP + B1 → commit `49fbb49cc4fd584e99413bfa7bef0191f762b34a`, tag `rendu-v2` ; MVP + B1 + B4 → commit `VERSION_RECETTEE_B4` (les commits suivants ne touchent que la documentation), tag `rendu-v3` (`git rev-list -n 1 rendu-v3`).

@@ -4,7 +4,7 @@ Application web de gestion de tâches personnelles, réalisée dans le cadre du 
 
 Chaque utilisateur crée un compte, se connecte et gère **ses** tâches (titre, statut, description, échéance). Les données d'un compte sont invisibles pour les autres, y compris par requête HTTP directe : l'autorisation est appliquée dans l'API, pas seulement dans l'interface.
 
-Le MVP du livret est complet. Le **bonus B1** (priorité, filtres et compteurs) a été ajouté ensuite, avec ses critères d'acceptation et ses tests dédiés (voir section 10) ; les cinq routes CRUD obligatoires sont inchangées.
+Le MVP du livret est complet. Les **bonus B1** (priorité, filtres et compteurs) et **B4** (statistiques hebdomadaires) ont été ajoutés ensuite, avec leurs critères d'acceptation et leurs tests dédiés (voir section 10) ; les cinq routes CRUD obligatoires sont inchangées.
 
 ## Sommaire
 
@@ -130,11 +130,11 @@ Au démarrage, l'API affiche `MongoDB connecté` puis l'URL de l'API et de Swagg
 Depuis la racine :
 
 ```bash
-npm test                       # suite Jest + Supertest du backend (145 tests, ~10 s)
+npm test                       # suite Jest + Supertest du backend (181 tests, ~12 s)
 npm run lint                   # ESLint backend puis frontend
 npm run build                  # build de production du front (frontend/dist)
 npm run verify                 # les trois à la suite
-node scripts/recette.js        # recette automatisée du contrat API contre une API démarrée (52 points, bonus B1 inclus)
+node scripts/recette.js        # recette automatisée du contrat API contre une API démarrée (60 points, bonus B1 et B4 inclus)
 ```
 
 Dans `backend/` : `npm test -- tests/tasks.isolation.test.js` (un fichier), `npm test -- -t "PATCH vide"` (un test par nom), `npm run test:coverage`.
@@ -157,6 +157,8 @@ MONGO_URI_TEST=mongodb://127.0.0.1:27017 npm test --prefix backend
 | `tasks.isolation.test.js` | comptes A/B : liste, lecture, modification, suppression → 404 et état en base intact ; `ownerId` imposé par le serveur |
 | `persistence.test.js` | données et connexion conservées après fermeture/réouverture de la connexion et nouvelle instance de l'application |
 | `tasks.bonus-b1.test.js` | bonus B1 : `priority` (défaut, valeurs, 400), filtres `status`/`priority`/`due`/`today` seuls et combinés, paramètres invalides ou inconnus → 400, isolation A/B des filtres, `/tasks/stats` (compteurs, zéros, isolation, 400, 401) |
+| `weeklyStats.unit.test.js` | bonus B4, calcul pur sans base : rattachement d'un instant à une date civile selon le fuseau, lundi de semaine ISO, séries `created`/`completed`/`open`, taux borné à [0, 1], semaines sans donnée → `null`, tâche rouverte, tendance |
+| `tasks.bonus-b4.test.js` | bonus B4 via l'API : cycle de `completedAt` (posé, conservé, effacé, refusé en entrée), `/tasks/stats/weekly` (scénario de référence antidaté, isolation A/B, valeurs par défaut, fuseau, données antérieures au bonus, bornes, 400, 401) |
 
 Le test d'isolation détecte réellement une régression : retirer `ownerId` du filtre dans `backend/src/services/task.service.js` fait échouer 6 des 11 tests de ce fichier (vérifié).
 
@@ -177,7 +179,7 @@ Le test d'isolation détecte réellement une régression : retirer `ownerId` du 
 │   │   ├── services/              # logique métier et accès Mongoose, toujours filtré par ownerId
 │   │   ├── models/                # User (email unique, passwordHash), Task (ownerId, title, status…)
 │   │   ├── middlewares/           # requireAuth (Bearer), validateObjectId, notFound, errorHandler
-│   │   ├── utils/                 # AppError + fabriques d'erreurs, civilDate, objectId
+│   │   ├── utils/                 # AppError + fabriques d'erreurs, civilDate, objectId, weeklyStats (calcul B4 pur)
 │   │   └── docs/openapi.json      # documentation OpenAPI servie sur /api/docs
 │   └── tests/                     # Jest + Supertest, setup/db.js (base de test), helpers/auth.js
 ├── frontend/
@@ -185,7 +187,7 @@ Le test d'isolation détecte réellement une régression : retirer `ownerId` du 
 │       ├── api/                   # client.js (fetch + Bearer + ApiError), jwt.js (lecture de exp)
 │       ├── context/               # AuthContext (session, login/register/logout, request), useAuth
 │       ├── components/            # Layout, ProtectedRoute, GuestRoute, TaskForm, Alert, StatusBadge, PriorityBadge (B1)
-│       ├── pages/                 # Login, Register, Tasks (liste, filtres et compteurs B1), NewTask, TaskDetail (détail/édition/suppression)
+│       ├── pages/                 # Login, Register, Tasks (liste, filtres et compteurs B1), NewTask, TaskDetail, Stats (B4)
 │       └── utils/                 # taskForm.js (validation client, conversion API), taskStatus.js (libellés), dates.js (date locale)
 ├── scripts/recette.js             # recette automatisée du contrat API
 ├── docs/                          # livret, RECETTE.md (checklist), SOUTENANCE.md (préparation orale)
@@ -224,6 +226,7 @@ Toutes les routes commencent par `/api`, lisent et renvoient du JSON UTF-8.
 | PATCH | `/api/tasks/:id` | Bearer | 200 tâche modifiée | 400, 401, 404 |
 | DELETE | `/api/tasks/:id` | Bearer | 204 sans corps | 400, 401, 404 |
 | GET | `/api/tasks/stats` (bonus B1) | Bearer | 200 compteurs | 400, 401 |
+| GET | `/api/tasks/stats/weekly` (bonus B4) | Bearer | 200 séries hebdomadaires | 400, 401 |
 
 Erreurs : `{"error":{"code":"INVALID_INPUT" | "UNAUTHORIZED" | "NOT_FOUND" | "EMAIL_ALREADY_USED","message":"…"}}` (400 / 401 / 404 / 409).
 
@@ -260,6 +263,40 @@ curl -s "http://localhost:3000/api/tasks/stats?today=2026-10-07" -H "Authorizati
 ```
 
 Côté interface : sélecteur de priorité dans le formulaire, pastille de priorité dans la liste et le détail, barre de filtres (statut, priorité, échéance) dont l'état vit dans l'URL (`/tasks?status=todo&due=overdue`), compteurs au-dessus de la liste.
+
+### Bonus B4 : statistiques hebdomadaires
+
+Réalisé après B1, conformément au livret (« Taux de complétion hebdomadaire, évolution par période, calcul documenté et tests sur les agrégations »).
+
+**Critères d'acceptation** (couverts par `backend/tests/weeklyStats.unit.test.js`, 13 tests sans base, et `backend/tests/tasks.bonus-b4.test.js`, 23 tests via l'API) :
+
+1. Le serveur pose `completedAt` au passage d'une tâche à `done`, le conserve tant qu'elle reste terminée, le remet à `null` si elle est rouverte. Le client ne peut pas le fournir (400). Il apparaît dans toutes les réponses de tâche.
+2. `GET /api/tasks/stats/weekly` renvoie, pour le compte connecté, `weeks` semaines (1 à 26, 8 par défaut) se terminant par la semaine de la date de référence, le taux global et la tendance. `weeks`, `today` et `tzOffset` sont validés ; paramètre inconnu → 400 ; JWT requis.
+3. Les instants sont rattachés à une date civile selon le fuseau du client (`tzOffset`, minutes, convention `Date.prototype.getTimezoneOffset`, Paris en été = `-120`) ; sans fuseau, lecture en UTC.
+4. Le calcul est isolé dans un module pur (`backend/src/utils/weeklyStats.js`), documenté et testé indépendamment de MongoDB.
+
+**Calcul documenté.** Une semaine va du lundi au dimanche (semaine ISO). Pour une semaine S :
+
+| Mesure | Définition |
+| --- | --- |
+| `created` | tâches dont la date civile de création est dans S |
+| `completed` | tâches dont la date civile de `completedAt` est dans S |
+| `open` | tâches « à traiter » pendant S : créées au plus tard le dernier jour de S et non terminées avant le premier jour de S |
+| `completionRate` | `completed / open`, arrondi à 4 décimales ; `null` (et non 0) si `open = 0` |
+| `overall.completionRate` | tâches `done` ÷ toutes les tâches du compte ; `null` si aucune tâche |
+| `trend.delta` | taux de la semaine courante − taux de la semaine précédente ; `null` si l'un des deux manque |
+
+Une tâche terminée pendant S était forcément ouverte pendant S, donc le taux hebdomadaire est toujours compris entre 0 et 1. Une tâche rouverte compte comme ouverte, plus comme terminée. Les tâches passées à `done` avant l'ajout de `completedAt` sont rattachées à leur dernière modification (seule information disponible).
+
+```bash
+curl -s "http://localhost:3000/api/tasks/stats/weekly?weeks=3&today=2026-10-07&tzOffset=-120" -H "Authorization: Bearer $TOKEN"
+# → {"weeks":3,"today":"2026-10-07","tzOffset":-120,
+#    "series":[{"weekStart":"2026-09-21","weekEnd":"2026-09-27","created":2,"completed":1,"open":2,"completionRate":0.5}, …],
+#    "overall":{"total":5,"done":3,"completionRate":0.6},
+#    "trend":{"currentRate":0.3333,"previousRate":0.5,"delta":-0.1667}}
+```
+
+Côté interface : page **Statistiques** (`/stats`) avec chiffres clés, graphique en barres du taux par semaine (une barre par semaine, info-bulle au survol et au clavier, semaine courante mise en évidence), tableau détaillé et choix de la période (4, 8, 12 ou 26 semaines, reflété dans l'URL). Le détail d'une tâche terminée affiche « Terminée le ».
 
 Exemple complet :
 
@@ -305,7 +342,8 @@ La documentation interactive (Swagger UI) permet de rejouer ces appels : bouton 
 - Pas de limitation de débit sur `/api/auth/login` (force brute possible). Amélioration : `express-rate-limit`.
 - La connexion répond un peu plus vite quand l'email n'existe pas (pas de `bcrypt.compare`) : différence de temps mesurable en théorie. Amélioration : comparer contre un hash factice.
 - Pas de pagination : la liste renvoie toutes les tâches du compte (filtrées ou non). Suffisant pour un usage personnel, à revoir au-delà de quelques centaines de tâches.
-- Les compteurs (`/tasks/stats`) sont calculés en JavaScript après lecture des tâches du compte, pas par agrégation MongoDB : simple à expliquer, à remplacer par un pipeline `$group` si le volume grandit.
+- Les compteurs (`/tasks/stats`) et les séries hebdomadaires (`/tasks/stats/weekly`) sont calculés en JavaScript après lecture des tâches du compte, pas par agrégation MongoDB : simple à expliquer et à tester unitairement, à remplacer par un pipeline `$group` si le volume grandit.
+- `completedAt` n'existe que depuis le bonus B4 : les tâches terminées auparavant sont rattachées à leur dernière modification, approximation documentée.
 - Pas de tests automatisés du front (un parcours navigateur a été vérifié manuellement et décrit dans `docs/RECETTE.md`). Amélioration : Playwright ou React Testing Library.
 - Pas de déploiement : la modalité n'est pas confirmée par l'établissement. Le build et la configuration par variables d'environnement sont prêts.
 
@@ -313,6 +351,6 @@ La documentation interactive (Swagger UI) permet de rejouer ces appels : bouton 
 
 Livrables présents dans ce dépôt : code front et back, suite de tests exécutable, `README.md`, `.env.example` (sans secret), documentation OpenAPI (`/api/docs`), checklist de recette (`docs/RECETTE.md`), préparation de soutenance (`docs/SOUTENANCE.md`), historique Git.
 
-**Versions** : le tag `rendu-v1` marque le MVP seul ; le tag `rendu-v2` marque la version complète (MVP + bonus B1). Le SHA d'un tag s'obtient avec `git rev-list -n 1 <tag>`. `docs/RECETTE.md` indique le SHA du code sur lequel la recette a été exécutée.
+**Versions** : le tag `rendu-v1` marque le MVP seul, `rendu-v2` le MVP + bonus B1, `rendu-v3` le MVP + bonus B1 et B4. Le SHA d'un tag s'obtient avec `git rev-list -n 1 <tag>`. `docs/RECETTE.md` indique le SHA du code sur lequel chaque recette a été exécutée.
 
 Points **non confirmés par l'établissement** au moment de la rédaction (section 10 du livret), donc non traités ici : dépôt GitHub public ou privé, archive ZIP, plateforme de dépôt et date de gel, obligation de déploiement cloud, barème, calendrier des soutenances, politique d'utilisation de l'IA.
