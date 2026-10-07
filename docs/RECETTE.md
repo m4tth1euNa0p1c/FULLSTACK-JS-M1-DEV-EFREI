@@ -50,7 +50,7 @@ Outils : `node scripts/recette.js` joue automatiquement les points marqués **[s
 - [x] Inscription, connexion et CRUD sont réalisables dans React, pas seulement dans un client HTTP — **[navigateur]** : `/register`, `/login`, `/tasks`, `/tasks/new`, `/tasks/:id` (modifier, supprimer).
 - [x] Les formulaires affichent des erreurs lisibles ; chargement, succès et suppression sont compréhensibles — **[navigateur]** : messages « Cet email est déjà utilisé », « Email ou mot de passe incorrect », « Chargement des tâches… », « Tâche « … » créée / mise à jour / supprimée », confirmation avant suppression, « Votre session a expiré ».
 - [x] L'interface reste utilisable sur un écran mobile ; les contrôles principaux sont accessibles au clavier — **[navigateur]** : largeur 375 px sans défilement horizontal ; Tab atteint les liens et boutons, focus visible (contour orange), Entrée active.
-- [x] Les tests Jest/Supertest couvrent le nominal, l'entrée invalide, l'absence de JWT et l'isolation A/B — `npm test` : 7 fichiers, 108 tests.
+- [x] Les tests Jest/Supertest couvrent le nominal, l'entrée invalide, l'absence de JWT et l'isolation A/B — `npm test` : 8 fichiers, 145 tests (108 pour le MVP, 37 pour le bonus B1).
 - [x] `README.md` contient toutes les commandes réellement nécessaires, les choix d'architecture et les limites.
 - [x] Swagger/OpenAPI reflète les routes, schémas et codes d'erreur réellement implémentés — `backend/src/docs/openapi.json`, servi sur `/api/docs` ; relu route par route contre `task.routes.js` et `auth.routes.js`.
 - [x] Le commit SHA final est identifiable et la version démontrée correspond à celle rendue — tag `rendu-v1`, voir ci-dessous.
