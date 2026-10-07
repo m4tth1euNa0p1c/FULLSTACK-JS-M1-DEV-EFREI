@@ -6,7 +6,7 @@
 - Terminal 2 : `npm run dev:frontend`.
 - Onglets ouverts : http://localhost:5173 (compte A déjà créé, un compte B prêt dans une fenêtre privée), http://localhost:3000/api/docs, VS Code sur `backend/src`.
 - Terminal 3 : `node scripts/recette.js` (à lancer pendant la partie sécurité) et `npm test --prefix backend`.
-- Avoir le SHA du rendu sous la main : `git rev-parse rendu-v1`.
+- Avoir le SHA du rendu sous la main : `git rev-list -n 1 rendu-v1`.
 
 ## Déroulé minuté
 

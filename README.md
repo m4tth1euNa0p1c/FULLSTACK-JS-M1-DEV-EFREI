@@ -276,6 +276,6 @@ La documentation interactive (Swagger UI) permet de rejouer ces appels : bouton 
 
 Livrables présents dans ce dépôt : code front et back, suite de tests exécutable, `README.md`, `.env.example` (sans secret), documentation OpenAPI (`/api/docs`), checklist de recette (`docs/RECETTE.md`), préparation de soutenance (`docs/SOUTENANCE.md`), historique Git.
 
-**Version rendue** : le commit final est tagué `rendu-v1` ; son SHA complet est indiqué dans `docs/RECETTE.md` et s'obtient avec `git rev-parse rendu-v1`.
+**Version rendue** : le commit final est tagué `rendu-v1` ; son SHA complet s'obtient avec `git rev-list -n 1 rendu-v1`. `docs/RECETTE.md` indique le SHA du code sur lequel la recette a été exécutée.
 
 Points **non confirmés par l'établissement** au moment de la rédaction (section 10 du livret), donc non traités ici : dépôt GitHub public ou privé, archive ZIP, plateforme de dépôt et date de gel, obligation de déploiement cloud, barème, calendrier des soutenances, politique d'utilisation de l'IA.

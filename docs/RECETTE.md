@@ -70,4 +70,4 @@ Environnement : Windows 11, Node.js 20.19.5, npm 11.6.4, MongoDB 7 (Docker `task
 | Mutation : suppression du filtre `ownerId` dans `task.service.js` | 6 des 11 tests de `tasks.isolation.test.js` échouent, puis repassent après restauration |
 | Parcours navigateur (inscription, erreurs 409/401, création, détail, modification, rechargement, annulation puis confirmation de suppression, tâche supprimée → « introuvable », mobile 375 px, Tab/Entrée/focus visible, jeton falsifié → « session expirée », reconnexion, déconnexion) | 30/30 vérifications OK |
 
-Version recettée : commit `bf16ad4029aa82747918291826aeaec950804631` ; commit de rendu : tag `rendu-v1` (`git rev-parse rendu-v1`).
+Version recettée : commit `bf16ad4029aa82747918291826aeaec950804631` (les commits suivants ne touchent que la documentation) ; commit de rendu : tag `rendu-v1` (`git rev-list -n 1 rendu-v1`).
