@@ -1,0 +1,281 @@
+# TaskFlow
+
+Application web de gestion de tâches personnelles, réalisée dans le cadre du module **Full Stack JS** (EFREI, Master 1), sujet **A. TaskFlow** du livret étudiant (`docs/LIVRET ETUDIANT V2.pdf`).
+
+Chaque utilisateur crée un compte, se connecte et gère **ses** tâches (titre, statut, description, échéance). Les données d'un compte sont invisibles pour les autres, y compris par requête HTTP directe : l'autorisation est appliquée dans l'API, pas seulement dans l'interface.
+
+## Sommaire
+
+1. [Stack et versions](#1-stack-et-versions)
+2. [Prérequis](#2-prérequis)
+3. [Installation](#3-installation)
+4. [Configuration](#4-configuration)
+5. [MongoDB](#5-mongodb)
+6. [Lancement](#6-lancement)
+7. [Ports et URLs](#7-ports-et-urls)
+8. [Tests, lint, build](#8-tests-lint-build)
+9. [Architecture](#9-architecture)
+10. [Contrat API](#10-contrat-api)
+11. [Sécurité](#11-sécurité)
+12. [Outillage : Vite, Babel, Webpack, CI/CD](#12-outillage--vite-babel-webpack-cicd)
+13. [Limites connues et améliorations](#13-limites-connues-et-améliorations)
+14. [Livrables et points à confirmer](#14-livrables-et-points-à-confirmer)
+
+## 1. Stack et versions
+
+| Couche | Technologie | Version utilisée |
+| --- | --- | --- |
+| Langage | JavaScript (CommonJS côté API, modules ES côté front) | Node.js 20.19.5, npm 11.6 |
+| Front-end | React, React Router, Vite | React 19.3, react-router-dom 7.18, Vite 8.3 |
+| API | Node.js, Express | Express 5.2 |
+| Base de données | MongoDB, Mongoose | MongoDB 7 (Docker), Mongoose 9.9 (driver mongodb 7.5) |
+| Authentification | bcrypt, jsonwebtoken | bcrypt 6.0, jsonwebtoken 9.0 |
+| Tests | Jest, Supertest, mongodb-memory-server | Jest 30.5, Supertest 7.3, mongodb-memory-server 11.3 |
+| Qualité | ESLint (flat config) | ESLint 10.12 |
+| Documentation API | OpenAPI 3.0, swagger-ui-express | swagger-ui-express 5.0 |
+
+Les versions exactes sont figées dans `backend/package-lock.json` et `frontend/package-lock.json`.
+
+> Mongoose est volontairement figé en `~9.9.0` : les versions 9.10 et 9.11 embarquent un driver mongodb (7.6 / 7.7) qui échoue sous Jest avec l'erreur « Missing required sub-document 'driver' ». Ne pas le mettre à jour sans relancer la suite de tests.
+
+## 2. Prérequis
+
+- **Node.js ≥ 20.19** et npm (vérifier avec `node -v`).
+- **MongoDB 7** : soit Docker Desktop (recommandé, un `docker-compose.yml` est fourni), soit une installation locale, soit une base distante (MongoDB Atlas).
+- **Git**.
+- Système testé : Windows 11 (Git Bash et PowerShell). Les commandes sont identiques sous macOS et Linux.
+
+## 3. Installation
+
+```bash
+git clone https://github.com/m4tth1euNa0p1c/FULLSTACK-JS-M1-DEV-EFREI.git
+cd FULLSTACK-JS-M1-DEV-EFREI
+npm run install:all            # équivaut à : npm install --prefix backend && npm install --prefix frontend
+```
+
+Le premier `npm install` du backend télécharge un binaire MongoDB (~80 Mo) utilisé uniquement par les tests (mongodb-memory-server). Pour s'en passer (par exemple en CI avec un vrai MongoDB), définir `MONGOMS_DISABLE_POSTINSTALL=1` avant l'installation.
+
+## 4. Configuration
+
+Copier les fichiers d'exemple puis adapter les valeurs. **Aucun fichier `.env` n'est versionné.**
+
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env      # facultatif en développement
+```
+
+`backend/.env` :
+
+| Variable | Rôle | Exemple |
+| --- | --- | --- |
+| `PORT` | Port HTTP de l'API | `3000` |
+| `MONGO_URI` | Chaîne de connexion de la base de développement | `mongodb://127.0.0.1:27017/taskflow` |
+| `JWT_SECRET` | Clé de signature des JWT (longue chaîne aléatoire, jamais versionnée) | voir ci-dessous |
+| `JWT_EXPIRES_IN` | Durée de vie d'un jeton | `1h` |
+| `BCRYPT_ROUNDS` | Coût du hachage bcrypt | `10` |
+| `CORS_ORIGIN` | Origine autorisée pour le navigateur | `http://localhost:5173` |
+
+Générer une clé JWT :
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+`frontend/.env` : `VITE_API_URL` reste vide en développement (Vite relaie `/api` vers l'API). À renseigner seulement si le front construit est servi depuis une autre origine que l'API.
+
+## 5. MongoDB
+
+**Avec Docker (recommandé)** :
+
+```bash
+docker compose up -d           # démarre le conteneur taskflow-mongo sur le port 27017
+docker compose down            # arrête le conteneur, les données restent dans le volume
+docker compose down -v         # supprime aussi les données
+```
+
+Vérifier : `docker exec taskflow-mongo mongosh --quiet --eval "db.runCommand({ping:1}).ok"` doit afficher `1`.
+
+**Sans Docker** : installer MongoDB Community 7, démarrer `mongod`, et garder `MONGO_URI=mongodb://127.0.0.1:27017/taskflow`. Avec Atlas, remplacer `MONGO_URI` par la chaîne fournie (`mongodb+srv://…`).
+
+La base de développement s'appelle `taskflow` (collections `users` et `tasks`). Les tests n'y touchent jamais (voir section 8).
+
+## 6. Lancement
+
+Dans deux terminaux, depuis la racine :
+
+```bash
+npm run dev:backend            # API Express, rechargée automatiquement (node --watch)
+npm run dev:frontend           # interface React (Vite)
+```
+
+Ou directement dans chaque dossier : `cd backend && npm run dev`, `cd frontend && npm run dev`. En production : `npm start` dans `backend/` et `npm run build` puis `npm run preview` dans `frontend/`.
+
+Au démarrage, l'API affiche `MongoDB connecté` puis l'URL de l'API et de Swagger. Si `JWT_SECRET` manque, elle s'arrête avec un message explicite.
+
+## 7. Ports et URLs
+
+| Service | URL |
+| --- | --- |
+| Interface React | http://localhost:5173 |
+| API (préfixe de toutes les routes) | http://localhost:3000/api |
+| Santé | http://localhost:3000/api/health → `{"status":"ok"}` |
+| Documentation Swagger UI | http://localhost:3000/api/docs |
+| Document OpenAPI brut | http://localhost:3000/api/docs.json (source : `backend/src/docs/openapi.json`) |
+| MongoDB | mongodb://127.0.0.1:27017 |
+
+## 8. Tests, lint, build
+
+Depuis la racine :
+
+```bash
+npm test                       # suite Jest + Supertest du backend (108 tests, ~10 s)
+npm run lint                   # ESLint backend puis frontend
+npm run build                  # build de production du front (frontend/dist)
+npm run verify                 # les trois à la suite
+node scripts/recette.js        # recette automatisée du contrat API contre une API démarrée (42 points)
+```
+
+Dans `backend/` : `npm test -- tests/tasks.isolation.test.js` (un fichier), `npm test -- -t "PATCH vide"` (un test par nom), `npm run test:coverage`.
+
+**Base de test isolée.** Chaque fichier de test démarre son propre serveur MongoDB en mémoire (`mongodb-memory-server`), vide ses collections après chaque test et le détruit à la fin. La base de développement `taskflow` n'est jamais lue ni modifiée ; le fichier `.env` n'est pas chargé en test (`backend/tests/setup/env.js`). Pour exécuter la suite contre un MongoDB réel (ce que fait la CI), le setup crée une base dédiée `taskflow_test_<pid>_<horodatage>` puis la supprime :
+
+```bash
+MONGO_URI_TEST=mongodb://127.0.0.1:27017 npm test --prefix backend
+```
+
+**Couverture fonctionnelle de la suite** (`backend/tests/`) :
+
+| Fichier | Ce qui est vérifié |
+| --- | --- |
+| `health.test.js` | `/api/health` exact, 404 contractuel, absence de `X-Powered-By` |
+| `auth.test.js` | register 201 / login 200, schéma `{user,token}`, JWT signé, email insensible à la casse, 409, 400, 401 sans fuite, hash bcrypt en base |
+| `auth.middleware.test.js` | JWT absent, schéma non Bearer, falsifié, contenu altéré, `alg: none`, expiré, sans `sub` → 401 sur les cinq routes |
+| `tasks.crud.test.js` | parcours nominal complet, valeurs par défaut, trim, PATCH partiel, 204 sans corps, id malformé 400, id absent 404 |
+| `tasks.validation.test.js` | 29 corps invalides en POST, 13 en PATCH (dates impossibles, `id`/`ownerId`, champs inconnus, PATCH vide…), cas limites acceptés |
+| `tasks.isolation.test.js` | comptes A/B : liste, lecture, modification, suppression → 404 et état en base intact ; `ownerId` imposé par le serveur |
+| `persistence.test.js` | données et connexion conservées après fermeture/réouverture de la connexion et nouvelle instance de l'application |
+
+Le test d'isolation détecte réellement une régression : retirer `ownerId` du filtre dans `backend/src/services/task.service.js` fait échouer 6 des 11 tests de ce fichier (vérifié).
+
+**Persistance après redémarrage, procédure manuelle** : créer une tâche (interface ou `node scripts/recette.js`, qui affiche l'identifiant et la commande `curl` à rejouer), arrêter l'API (Ctrl+C), la relancer, puis relire la tâche : HTTP 200 et mêmes données. Détail dans `docs/RECETTE.md`.
+
+## 9. Architecture
+
+```
+.
+├── backend/
+│   ├── src/
+│   │   ├── app.js                 # createApp() : Express sans écoute ni connexion (importable par les tests)
+│   │   ├── server.js              # connexion MongoDB + app.listen(PORT) + arrêt propre
+│   │   ├── config/                # env.js (variables d'environnement), db.js (Mongoose)
+│   │   ├── routes/                # health, auth, tasks + montage Swagger (index.js)
+│   │   ├── controllers/           # lisent la requête, appellent validateur + service, fixent le code HTTP
+│   │   ├── validators/            # règles du contrat (liste blanche de champs, longueurs, dates réelles)
+│   │   ├── services/              # logique métier et accès Mongoose, toujours filtré par ownerId
+│   │   ├── models/                # User (email unique, passwordHash), Task (ownerId, title, status…)
+│   │   ├── middlewares/           # requireAuth (Bearer), validateObjectId, notFound, errorHandler
+│   │   ├── utils/                 # AppError + fabriques d'erreurs, civilDate, objectId
+│   │   └── docs/openapi.json      # documentation OpenAPI servie sur /api/docs
+│   └── tests/                     # Jest + Supertest, setup/db.js (base de test), helpers/auth.js
+├── frontend/
+│   └── src/
+│       ├── api/                   # client.js (fetch + Bearer + ApiError), jwt.js (lecture de exp)
+│       ├── context/               # AuthContext (session, login/register/logout, request), useAuth
+│       ├── components/            # Layout, ProtectedRoute, GuestRoute, TaskForm, Alert, StatusBadge
+│       ├── pages/                 # Login, Register, Tasks (liste), NewTask, TaskDetail (détail/édition/suppression)
+│       └── utils/                 # taskForm.js (validation client, conversion API), taskStatus.js
+├── scripts/recette.js             # recette automatisée du contrat API
+├── docs/                          # livret, RECETTE.md (checklist), SOUTENANCE.md (préparation orale)
+├── docker-compose.yml             # MongoDB 7 de développement
+└── .github/workflows/ci.yml       # lint + tests + build à chaque push / pull request
+```
+
+**Chemin d'une requête** `PATCH /api/tasks/:id` :
+
+1. `express.json()` parse le corps (JSON illisible → 400 via le gestionnaire d'erreurs).
+2. `routes/task.routes.js` : `requireAuth` lit `Authorization: Bearer <jwt>`, vérifie signature et expiration avec `JWT_SECRET`, pose `req.user = { id }` (sinon 401) ; `validateObjectId` vérifie le format de `:id` (sinon 400).
+3. `controllers/task.controller.js` : `validateTaskPatch(req.body)` retourne les champs normalisés ou lève une `AppError` 400.
+4. `services/task.service.js` : `findOneAndUpdate({ _id, ownerId: req.user.id }, …)` ; aucun document → 404.
+5. `models/Task.js` : `toJSON` renvoie `{ id, title, status, description, dueDate, createdAt, updatedAt }`.
+6. Toute erreur remonte à `middlewares/errorHandler.js` → `{"error":{"code","message"}}`, sans trace serveur.
+
+**Choix techniques** :
+
+- Validation écrite à la main (pas de Joi/Zod) pour que chaque règle du contrat soit lisible dans un seul fichier, `validators/task.validator.js`, et explicable en soutenance.
+- `dueDate` stockée comme chaîne `YYYY-MM-DD` : c'est une date civile sans heure, la stocker en `Date` introduirait des décalages de fuseau horaire.
+- Express 5 : les promesses rejetées dans les contrôleurs arrivent au gestionnaire d'erreurs sans wrapper.
+- Front : Vite relaie `/api` vers l'API en développement (pas de CORS à gérer), et l'API active quand même `cors` pour un déploiement séparé.
+
+## 10. Contrat API
+
+Toutes les routes commencent par `/api`, lisent et renvoient du JSON UTF-8.
+
+| Méthode | Route | Accès | Succès | Erreurs |
+| --- | --- | --- | --- | --- |
+| GET | `/api/health` | public | 200 `{"status":"ok"}` | |
+| POST | `/api/auth/register` | public | 201 `{"user":{"id","email"},"token"}` | 400, 409 |
+| POST | `/api/auth/login` | public | 200 même schéma | 400, 401 |
+| GET | `/api/tasks` | Bearer | 200 `{"items":[…]}` | 401 |
+| POST | `/api/tasks` | Bearer | 201 tâche créée | 400, 401 |
+| GET | `/api/tasks/:id` | Bearer | 200 tâche | 400, 401, 404 |
+| PATCH | `/api/tasks/:id` | Bearer | 200 tâche modifiée | 400, 401, 404 |
+| DELETE | `/api/tasks/:id` | Bearer | 204 sans corps | 400, 401, 404 |
+
+Erreurs : `{"error":{"code":"INVALID_INPUT" | "UNAUTHORIZED" | "NOT_FOUND" | "EMAIL_ALREADY_USED","message":"…"}}` (400 / 401 / 404 / 409).
+
+Règles de validation (serveur) : `title` trimé, 1 à 120 caractères, obligatoire ; `status` exactement `todo`, `doing` ou `done`, obligatoire ; `description` 0 à 1000 caractères, chaîne vide acceptée ; `dueDate` date civile réelle `YYYY-MM-DD` ou `null`. `id`, `_id`, `ownerId` et tout champ inconnu sont refusés (400) en POST comme en PATCH ; un PATCH vide est refusé.
+
+Exemple complet :
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:3000/api/auth/register -H "Content-Type: application/json" \
+  -d '{"email":"alice@example.test","password":"MotDePasse123!"}' | node -pe "JSON.parse(require('fs').readFileSync(0)).token")
+
+curl -s -X POST http://localhost:3000/api/tasks -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"title":"Préparer la démo","status":"todo","description":"Plan et données","dueDate":"2026-10-05"}'
+# → 201 {"id":"…","title":"Préparer la démo","status":"todo","description":"Plan et données","dueDate":"2026-10-05",…}
+
+curl -s http://localhost:3000/api/tasks -H "Authorization: Bearer $TOKEN"            # 200 {"items":[…]}
+curl -s -X PATCH http://localhost:3000/api/tasks/<id> -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"status":"done"}'                          # 200
+curl -s -i -X DELETE http://localhost:3000/api/tasks/<id> -H "Authorization: Bearer $TOKEN"   # 204
+```
+
+La documentation interactive (Swagger UI) permet de rejouer ces appels : bouton **Authorize**, coller le token, puis **Try it out**.
+
+## 11. Sécurité
+
+- **Mots de passe** : jamais stockés en clair. `bcrypt.hash(password, BCRYPT_ROUNDS)` produit un hash salé ; la connexion compare avec `bcrypt.compare`. Les réponses ne contiennent jamais `password` ni `passwordHash` (filtré par le `toJSON` du modèle `User`).
+- **Email** : validé par expression régulière, normalisé en minuscules à l'inscription et à la connexion ; index unique en base. Un email déjà utilisé répond 409.
+- **JWT** : `jwt.sign({ sub: user.id }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN })`, algorithme HS256. Le serveur ne stocke rien : la signature prouve que le jeton a été émis avec la clé serveur et n'a pas été altéré. `requireAuth` vérifie signature, expiration et algorithme (`alg: none` refusé), puis extrait l'identifiant utilisateur. Jeton absent, invalide, falsifié ou expiré → 401.
+- **Expiration** : `JWT_EXPIRES_IN=1h` par défaut. Un jeton volé ne reste utilisable que jusqu'à son `exp` ; en contrepartie l'utilisateur doit se reconnecter. Le front détecte l'expiration de deux façons : à l'ouverture il ignore un jeton dont `exp` est dépassé, et toute réponse 401 déconnecte avec le message « Votre session a expiré ». Il n'y a pas de révocation côté serveur (voir limites).
+- **Stockage du jeton dans le navigateur** : `localStorage` (clé `taskflow.session`). Avantages : simple, survit au rechargement, envoyé explicitement en en-tête `Authorization` donc insensible au CSRF. Inconvénient : lisible par tout script exécuté sur la page, donc vulnérable en cas de faille XSS. L'alternative (cookie `httpOnly` + `SameSite` + protection CSRF) protège mieux contre XSS mais complexifie l'API ; le choix `localStorage` est assumé pour ce TP et documenté comme limite.
+- **Isolation des comptes** : `ownerId` est déduit du JWT vérifié, jamais du corps de la requête (`id`/`ownerId` fournis par le client → 400). Toutes les requêtes Mongo filtrent sur `ownerId`. Une tâche d'un autre compte répond 404 comme une tâche inexistante : on ne révèle pas son existence.
+- **Validation serveur** : systématique, indépendante du formulaire React. Masquer un bouton dans l'interface n'est pas une autorisation.
+- **Erreurs** : enveloppe unique, messages lisibles, aucune trace ni détail interne ; les erreurs inattendues donnent un 500 générique et sont journalisées côté serveur.
+- **Hygiène** : `.env`, `node_modules`, `dist` ignorés par Git ; `.env.example` ne contient que des valeurs fictives ; `X-Powered-By` désactivé ; corps JSON limité à 100 ko.
+
+## 12. Outillage : Vite, Babel, Webpack, CI/CD
+
+- **Vite** sert le front en développement (modules ES natifs, rechargement instantané, proxy `/api`) et produit le build de production avec Rollup (`npm run build` → `frontend/dist`, fichiers minifiés et fingerprintés). Le JSX est transformé par `@vitejs/plugin-react` (esbuild/oxc), sans configuration Babel manuelle.
+- **Babel** est un transpileur : il réécrit du JavaScript moderne ou du JSX en code compris par des environnements plus anciens. Historiquement associé à Webpack ; ici il n'est pas nécessaire, Vite s'appuie sur des outils plus rapides pour le même rôle.
+- **Webpack** est un bundler : il assemble modules, CSS et images en quelques fichiers optimisés. Vite joue ce rôle via Rollup pour la production, avec une expérience de développement plus rapide (pas de bundle complet à chaque modification).
+- **Place des tests dans une chaîne CI/CD** : le workflow `.github/workflows/ci.yml` s'exécute à chaque push et pull request : job backend (`npm ci`, `npm run lint`, `npm test` contre un conteneur `mongo:7`) et job frontend (`npm ci`, `npm run lint`, `npm run build`). Dans une chaîne complète, ces jobs constituent la porte de qualité : un déploiement ne serait déclenché qu'après leur succès, puis suivi de tests de bout en bout contre l'environnement déployé.
+
+## 13. Limites connues et améliorations
+
+- Pas de révocation de JWT (déconnexion = suppression du jeton côté client ; un jeton volé reste valide jusqu'à expiration). Amélioration : jetons courts + refresh token, ou liste de révocation.
+- Jeton en `localStorage` (voir section 11). Amélioration : cookie `httpOnly` + CSRF.
+- Pas de limitation de débit sur `/api/auth/login` (force brute possible). Amélioration : `express-rate-limit`.
+- La connexion répond un peu plus vite quand l'email n'existe pas (pas de `bcrypt.compare`) : différence de temps mesurable en théorie. Amélioration : comparer contre un hash factice.
+- Pas de pagination ni de filtres sur la liste (hors MVP ; bonus B1 du livret).
+- Pas de tests automatisés du front (un parcours navigateur a été vérifié manuellement et décrit dans `docs/RECETTE.md`). Amélioration : Playwright ou React Testing Library.
+- Pas de déploiement : la modalité n'est pas confirmée par l'établissement. Le build et la configuration par variables d'environnement sont prêts.
+
+## 14. Livrables et points à confirmer
+
+Livrables présents dans ce dépôt : code front et back, suite de tests exécutable, `README.md`, `.env.example` (sans secret), documentation OpenAPI (`/api/docs`), checklist de recette (`docs/RECETTE.md`), préparation de soutenance (`docs/SOUTENANCE.md`), historique Git.
+
+**Version rendue** : le commit final est tagué `rendu-v1` ; son SHA complet est indiqué dans `docs/RECETTE.md` et s'obtient avec `git rev-parse rendu-v1`.
+
+Points **non confirmés par l'établissement** au moment de la rédaction (section 10 du livret), donc non traités ici : dépôt GitHub public ou privé, archive ZIP, plateforme de dépôt et date de gel, obligation de déploiement cloud, barème, calendrier des soutenances, politique d'utilisation de l'IA.
