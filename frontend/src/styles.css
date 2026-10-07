@@ -432,6 +432,187 @@ textarea {
   align-items: flex-end;
 }
 
+/* ---------- Bonus B4 : statistiques hebdomadaires ---------- */
+.filters__note {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.trend-line {
+  margin: 0 0 1rem;
+}
+.trend--up {
+  color: var(--color-success-text);
+}
+.trend--down {
+  color: var(--color-error-text);
+}
+
+.chart {
+  margin-bottom: 1rem;
+}
+
+.chart__plot {
+  position: relative;
+  display: grid;
+  grid-template-columns: 3.2rem 1fr;
+  gap: 0 0.5rem;
+  height: 220px;
+  padding-top: 1.6rem;
+  padding-bottom: 1.6rem;
+}
+
+/* Repères discrets : trois lignes (0, 50, 100 %) et leurs libellés */
+.chart__grid {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+.chart__plot::before {
+  content: '';
+  position: absolute;
+  left: 3.7rem;
+  right: 0;
+  top: 1.6rem;
+  bottom: 1.6rem;
+  background: linear-gradient(to bottom, var(--color-border) 1px, transparent 1px) top / 100% 50% repeat-y,
+    linear-gradient(to top, var(--color-border) 1px, transparent 1px) bottom / 100% 1px no-repeat;
+  pointer-events: none;
+}
+
+.chart__bars {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 100%;
+}
+
+.bar {
+  position: relative;
+  flex: 1 1 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 0;
+}
+
+/* Zone de survol plus large que la barre elle-même */
+.bar__hit {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: default;
+  border-radius: 6px;
+}
+.bar__hit:hover {
+  background: rgba(47, 91, 234, 0.06);
+}
+
+.bar__fill {
+  display: block;
+  width: 60%;
+  max-width: 28px;
+  background: var(--color-primary);
+  border-radius: 4px 4px 0 0;
+}
+.bar--current .bar__fill {
+  background: var(--color-primary-dark);
+}
+
+.bar__empty {
+  display: block;
+  width: 60%;
+  max-width: 28px;
+  height: 2px;
+  border-top: 2px dashed var(--color-border);
+}
+
+.bar__value {
+  position: absolute;
+  top: -1.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.bar__label {
+  position: absolute;
+  bottom: -1.5rem;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.bar__tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-text);
+  color: #fff;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  z-index: 5;
+  text-align: left;
+}
+.bar__hit:hover .bar__tooltip,
+.bar__hit:focus-visible .bar__tooltip {
+  display: block;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.table thead th {
+  color: var(--color-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.table td {
+  font-variant-numeric: tabular-nums;
+}
+.table__current th,
+.table__current td {
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .bar:nth-child(even) .bar__label {
+    display: none;
+  }
+}
+
 /* ---------- Mobile ---------- */
 @media (max-width: 600px) {
   .detail-grid {

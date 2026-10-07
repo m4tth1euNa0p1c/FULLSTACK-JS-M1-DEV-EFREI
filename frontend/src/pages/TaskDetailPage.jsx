@@ -5,7 +5,7 @@ import PriorityBadge from '../components/PriorityBadge';
 import StatusBadge from '../components/StatusBadge';
 import TaskForm from '../components/TaskForm';
 import { fromTask, toApiPayload } from '../utils/taskForm';
-import { formatCivilDate } from '../utils/dates';
+import { formatCivilDate, formatDateTime } from '../utils/dates';
 import { useAuth } from '../context/useAuth';
 
 /** Ne garde que les champs réellement modifiés : le PATCH reste partiel. */
@@ -147,6 +147,12 @@ export default function TaskDetailPage() {
             </dd>
             <dt>Échéance</dt>
             <dd>{formatCivilDate(task.dueDate)}</dd>
+            {task.completedAt && (
+              <>
+                <dt>Terminée le</dt>
+                <dd>{formatDateTime(task.completedAt)}</dd>
+              </>
+            )}
             <dt>Description</dt>
             <dd>{task.description ? task.description : <span className="muted">Aucune description</span>}</dd>
             <dt>Identifiant</dt>
