@@ -1,0 +1,43 @@
+# Mises à jour de dépendances proposées en pull request vers develop, une fois par semaine.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: weekly
+    target-branch: develop
+    labels: [infra]
+    ignore:
+      # Figé volontairement : les drivers mongodb 7.6+ échouent sous Jest (voir README, section 1).
+      - dependency-name: mongoose
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    target-branch: develop
+    labels: [infra]
+  - package-ecosystem: npm
+    directory: /e2e
+    schedule:
+      interval: weekly
+    target-branch: develop
+    labels: [infra]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    target-branch: develop
+    labels: [ci-cd]
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+    target-branch: develop
+    labels: [infra]
+  - package-ecosystem: docker
+    directory: /frontend
+    schedule:
+      interval: weekly
+    target-branch: develop
+    labels: [infra]

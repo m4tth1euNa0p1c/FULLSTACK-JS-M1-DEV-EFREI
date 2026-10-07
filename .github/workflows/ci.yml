@@ -1,9 +1,15 @@
 name: CI
 
+# Porte de qualité rapide : lint, tests et build à chaque pull request et à chaque
+# push sur les branches d'intégration (develop) et de production (main).
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   backend:
@@ -60,3 +66,26 @@ jobs:
         run: npm run lint
       - name: Build de production
         run: npm run build
+
+  images:
+    name: Images Docker - construction
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - name: Construire l'image de l'API
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: false
+          tags: taskflow-api:ci
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+      - name: Construire l'image du front
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: false
+          tags: taskflow-web:ci
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max

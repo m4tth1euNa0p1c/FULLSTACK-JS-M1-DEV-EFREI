@@ -10,7 +10,12 @@
     "test": "npm test --prefix backend",
     "lint": "npm run lint --prefix backend && npm run lint --prefix frontend",
     "build": "npm run build --prefix frontend",
-    "verify": "npm run lint && npm test && npm run build"
+    "verify": "npm run lint && npm test && npm run build",
+    "e2e": "npm test --prefix e2e",
+    "e2e:smoke": "npm run test:smoke --prefix e2e",
+    "int:up": "docker compose -f infra/compose/docker-compose.int.yml up -d --build --wait",
+    "int:down": "docker compose -f infra/compose/docker-compose.int.yml down -v",
+    "int:logs": "docker compose -f infra/compose/docker-compose.int.yml logs --no-color"
   },
   "engines": {
     "node": ">=20.19.0"

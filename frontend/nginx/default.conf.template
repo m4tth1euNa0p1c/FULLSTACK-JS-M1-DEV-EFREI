@@ -1,0 +1,35 @@
+# Template nginx : ${PORT} et ${API_UPSTREAM} sont substitués au démarrage du conteneur.
+# - Fichiers statiques du build Vite, avec repli sur index.html (routage côté client React Router).
+# - /api relayé vers l'API : même origine pour le navigateur, pas de CORS.
+#   API_UPSTREAM = http://api:3000 (compose) ou l'URL https du service API (Cloud Run).
+server {
+    listen ${PORT};
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Pas de mise en cache de la page d'entrée : les assets, eux, portent une empreinte dans leur nom.
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    location /api/ {
+        proxy_pass ${API_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # Nécessaire quand l'API est servie en https derrière un nom (Cloud Run).
+        proxy_ssl_server_name on;
+        proxy_read_timeout 30s;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

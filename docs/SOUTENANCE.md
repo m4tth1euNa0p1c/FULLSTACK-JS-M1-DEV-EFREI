@@ -45,14 +45,15 @@ Si le temps manque : sauter l'étape 6.
 - **bcrypt** (`services/auth.service.js`) : `bcrypt.hash` avec un coût de 10 ; seul le hash salé est stocké ; `bcrypt.compare` à la connexion. Montrer dans Mongo que `users` ne contient que `passwordHash`.
 - **JWT** : `jwt.sign({ sub: user.id }, JWT_SECRET, { expiresIn: '1h' })`. La clé vient de `.env` (jamais versionnée). Le serveur ne stocke pas de session : la signature prouve l'authenticité. `requireAuth` → 401 si absent, invalide, falsifié, expiré.
 - **Expiration et stockage** : jeton d'une heure ; stocké en `localStorage` pour survivre au rechargement et être envoyé en en-tête (pas de CSRF), au prix d'une exposition en cas de XSS. Alternative connue : cookie `httpOnly`. Un 401 déconnecte avec « session expirée ».
-- **Validation** (`validators/task.validator.js`) : liste blanche de champs, `id`/`ownerId` refusés, dates civiles réelles (`2026-02-30` refusé), PATCH non vide. Lancer `node scripts/recette.js` : 42 points verts, dont les cas invalides.
+- **Validation** (`validators/task.validator.js`) : liste blanche de champs, `id`/`ownerId` refusés, dates civiles réelles (`2026-02-30` refusé), PATCH non vide. Lancer `node scripts/recette.js` : 60 points verts, dont les cas invalides.
 - **Isolation A/B** (`services/task.service.js`) : `ownerId` vient du JWT, jamais du client ; chaque requête Mongo filtre sur `ownerId` ; une tâche d'autrui → 404 comme si elle n'existait pas (on ne révèle rien). « Masquer un bouton dans React n'est pas une autorisation : la règle est dans Express. »
 
 ### 1 min — Tests, Swagger, README
 
-- `npm test` : 7 fichiers, 108 tests Jest + Supertest, base MongoDB en mémoire isolée du développement. Montrer `tests/tasks.isolation.test.js` : B reçoit 404 **et** la tâche de A est intacte en base. « Si je retire le filtre `ownerId` du service, 6 tests échouent. »
-- Swagger sur `/api/docs` : Bearer, les 8 routes, schémas, erreurs 400/401/404/409.
-- README : installation, `.env.example`, MongoDB, lancement, tests/lint/build, architecture, sécurité, limites. CI GitHub Actions : lint + tests + build à chaque push.
+- `npm test` : 10 fichiers, 181 tests Jest + Supertest (108 pour le MVP), base MongoDB en mémoire isolée du développement. Montrer `tests/tasks.isolation.test.js` : B reçoit 404 **et** la tâche de A est intacte en base. « Si je retire le filtre `ownerId` du service, 6 tests échouent. »
+- Tests de bout en bout : suite Playwright `e2e/` (19 tests : santé, auth, CRUD, clavier, mobile, bonus), jouée dans le navigateur contre la pile Docker d'intégration à chaque pull request.
+- Swagger sur `/api/docs` : Bearer, les 10 routes (8 du contrat + 2 de bonus), schémas, erreurs 400/401/404/409.
+- README : installation, `.env.example`, MongoDB, lancement, tests/lint/build, architecture, sécurité, limites, environnements. Chaîne GitHub Actions : `CI` (lint, tests, build, images) → `Intégration` (pile Docker, recette API, Playwright) → `Production` (images GHCR, Cloud Run, tests de fumée) ; branches `develop` / `main`, un ticket et une pull request par étape (`docs/BRANCHING.md`).
 
 ### 1 min — Limites et améliorations
 
