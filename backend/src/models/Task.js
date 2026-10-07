@@ -14,6 +14,9 @@ const taskSchema = new Schema(
     description: { type: String, default: '', maxlength: 1000 },
     // Date civile stockée telle quelle ("YYYY-MM-DD") : pas d'heure, donc pas de fuseau horaire.
     dueDate: { type: String, default: null },
+    // Bonus B4 : instant du passage au statut done, posé par le serveur (null tant que la tâche
+    // n'est pas terminée, remis à null si elle est rouverte). Sert aux statistiques hebdomadaires.
+    completedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
@@ -27,6 +30,7 @@ taskSchema.set('toJSON', {
     priority: ret.priority,
     description: ret.description,
     dueDate: ret.dueDate,
+    completedAt: ret.completedAt ?? null,
     createdAt: ret.createdAt,
     updatedAt: ret.updatedAt,
   }),
