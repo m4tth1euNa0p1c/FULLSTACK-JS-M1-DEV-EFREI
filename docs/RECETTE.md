@@ -80,6 +80,17 @@ Critères d'acceptation et calcul documentés dans le README (section 10) ; chaq
 - [x] Isolation A/B : les statistiques de B ne voient pas les tâches de A — **[script]** et tests.
 - [x] Interface : lien « Statistiques », chiffres clés, graphique à 8 barres (4/12/26 au choix, reflété dans l'URL), info-bulles accessibles, tableau détaillé, « Terminée le » dans le détail — **[navigateur]**.
 
+## Chaîne d'intégration et de production
+
+Depuis la mise en place des branches `develop` / `main`, la recette est rejouée automatiquement :
+
+- [x] À chaque pull request : workflow `CI` (lint, 181 tests Jest contre un conteneur Mongo, build, construction des images Docker).
+- [x] À chaque pull request vers `develop` ou `main` et à chaque push sur `develop` : workflow `Intégration`. La pile complète (`infra/compose/docker-compose.int.yml`) est construite et démarrée dans le runner, puis `node scripts/recette.js` (60 points) et la suite Playwright `e2e/` (19 tests : santé, auth, CRUD, clavier, mobile, bonus B1 et B4) sont exécutés ; le rapport HTML Playwright est publié en artefact.
+- [x] À chaque fusion dans `main` : workflow `Production` (images GHCR étiquetées par SHA, déploiement Cloud Run si le projet est configuré, tests de fumée `@smoke` sans écriture contre l'URL déployée).
+- [x] Reproductible en local : `npm run int:up`, `E2E_BASE_URL=http://localhost:8080 npm run e2e`, `API_URL=http://localhost:3000/api node scripts/recette.js`, `npm run int:down`.
+
+Les preuves de chaque étape sont les tickets GitHub, leurs pull requests et les exécutions GitHub Actions associées (`docs/BRANCHING.md`).
+
 ## Résultats de la recette du 7 octobre 2026
 
 Environnement : Windows 11, Node.js 20.19.5, npm 11.6.4, MongoDB 7 (Docker `taskflow-mongo`), Chrome (parcours navigateur).

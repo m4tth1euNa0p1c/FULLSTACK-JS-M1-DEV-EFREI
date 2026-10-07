@@ -22,6 +22,7 @@ Le MVP du livret est complet. Les **bonus B1** (priorité, filtres et compteurs)
 12. [Outillage : Vite, Babel, Webpack, CI/CD](#12-outillage--vite-babel-webpack-cicd)
 13. [Limites connues et améliorations](#13-limites-connues-et-améliorations)
 14. [Livrables et points à confirmer](#14-livrables-et-points-à-confirmer)
+15. [Environnements, conteneurs et chaîne CI/CD](#15-environnements-conteneurs-et-chaîne-cicd)
 
 ## 1. Stack et versions
 
@@ -135,7 +136,11 @@ npm run lint                   # ESLint backend puis frontend
 npm run build                  # build de production du front (frontend/dist)
 npm run verify                 # les trois à la suite
 node scripts/recette.js        # recette automatisée du contrat API contre une API démarrée (60 points, bonus B1 et B4 inclus)
+npm run e2e                    # suite Playwright de bout en bout (e2e/, 19 tests), cible E2E_BASE_URL (défaut http://localhost:5173)
+npm run int:up                 # pile d'intégration Docker (MongoDB + API + front nginx) sur http://localhost:8080 ; npm run int:down pour l'arrêter
 ```
+
+Première utilisation de Playwright : `npm install --prefix e2e` puis `npm run install:browsers --prefix e2e` (télécharge Chromium) ou, pour utiliser le Chrome installé, `E2E_BROWSER_CHANNEL=chrome npm run e2e`.
 
 Dans `backend/` : `npm test -- tests/tasks.isolation.test.js` (un fichier), `npm test -- -t "PATCH vide"` (un test par nom), `npm run test:coverage`.
 
@@ -189,10 +194,17 @@ Le test d'isolation détecte réellement une régression : retirer `ownerId` du 
 │       ├── components/            # Layout, ProtectedRoute, GuestRoute, TaskForm, Alert, StatusBadge, PriorityBadge (B1)
 │       ├── pages/                 # Login, Register, Tasks (liste, filtres et compteurs B1), NewTask, TaskDetail, Stats (B4)
 │       └── utils/                 # taskForm.js (validation client, conversion API), taskStatus.js (libellés), dates.js (date locale)
+├── e2e/                           # tests Playwright de bout en bout (santé @smoke, auth, CRUD, bonus), rapport HTML
+├── infra/
+│   ├── compose/docker-compose.int.yml   # pile d'intégration : MongoDB + API + front nginx, construite depuis les sources
+│   └── gcp/setup.sh               # mise en place Google Cloud (Artifact Registry, OIDC GitHub, secrets) pour le déploiement
 ├── scripts/recette.js             # recette automatisée du contrat API
-├── docs/                          # livret, RECETTE.md (checklist), SOUTENANCE.md (préparation orale)
+├── docs/                          # livret, RECETTE.md, SOUTENANCE.md, BRANCHING.md (branches, tickets, PR), DEPLOYMENT.md (environnements)
 ├── docker-compose.yml             # MongoDB 7 de développement
-└── .github/workflows/ci.yml       # lint + tests + build à chaque push / pull request
+└── .github/
+    ├── workflows/ci.yml           # lint + tests + build + construction des images, à chaque PR et push sur develop/main
+    ├── workflows/integration.yml  # pile Docker + recette API + Playwright (environnement d'intégration)
+    └── workflows/production.yml   # images GHCR, déploiement Cloud Run, tests de fumée (fusion dans main)
 ```
 
 **Chemin d'une requête** `PATCH /api/tasks/:id` :
@@ -333,7 +345,7 @@ La documentation interactive (Swagger UI) permet de rejouer ces appels : bouton 
 - **Vite** sert le front en développement (modules ES natifs, rechargement instantané, proxy `/api`) et produit le build de production avec Rollup (`npm run build` → `frontend/dist`, fichiers minifiés et fingerprintés). Le JSX est transformé par `@vitejs/plugin-react` (esbuild/oxc), sans configuration Babel manuelle.
 - **Babel** est un transpileur : il réécrit du JavaScript moderne ou du JSX en code compris par des environnements plus anciens. Historiquement associé à Webpack ; ici il n'est pas nécessaire, Vite s'appuie sur des outils plus rapides pour le même rôle.
 - **Webpack** est un bundler : il assemble modules, CSS et images en quelques fichiers optimisés. Vite joue ce rôle via Rollup pour la production, avec une expérience de développement plus rapide (pas de bundle complet à chaque modification).
-- **Place des tests dans une chaîne CI/CD** : le workflow `.github/workflows/ci.yml` s'exécute à chaque push et pull request : job backend (`npm ci`, `npm run lint`, `npm test` contre un conteneur `mongo:7`) et job frontend (`npm ci`, `npm run lint`, `npm run build`). Dans une chaîne complète, ces jobs constituent la porte de qualité : un déploiement ne serait déclenché qu'après leur succès, puis suivi de tests de bout en bout contre l'environnement déployé.
+- **Place des tests dans la chaîne CI/CD** (détail en section 15) : à chaque pull request, `CI` joue lint, tests Jest (contre un conteneur `mongo:7`), build et construction des images ; `Intégration` démarre la pile Docker complète et y rejoue la recette API puis la suite Playwright. Une fusion dans `main` déclenche `Production` : publication des images, déploiement Cloud Run (si configuré) et tests de fumée contre l'URL déployée. Les tests sont donc la porte de qualité avant toute fusion et avant toute mise en production.
 
 ## 13. Limites connues et améliorations
 
@@ -344,8 +356,8 @@ La documentation interactive (Swagger UI) permet de rejouer ces appels : bouton 
 - Pas de pagination : la liste renvoie toutes les tâches du compte (filtrées ou non). Suffisant pour un usage personnel, à revoir au-delà de quelques centaines de tâches.
 - Les compteurs (`/tasks/stats`) et les séries hebdomadaires (`/tasks/stats/weekly`) sont calculés en JavaScript après lecture des tâches du compte, pas par agrégation MongoDB : simple à expliquer et à tester unitairement, à remplacer par un pipeline `$group` si le volume grandit.
 - `completedAt` n'existe que depuis le bonus B4 : les tâches terminées auparavant sont rattachées à leur dernière modification, approximation documentée.
-- Pas de tests automatisés du front (un parcours navigateur a été vérifié manuellement et décrit dans `docs/RECETTE.md`). Amélioration : Playwright ou React Testing Library.
-- Pas de déploiement : la modalité n'est pas confirmée par l'établissement. Le build et la configuration par variables d'environnement sont prêts.
+- Le front est couvert par la suite Playwright de bout en bout (`e2e/`, 19 tests en intégration) mais n'a pas de tests unitaires de composants. Amélioration : React Testing Library sur `TaskForm` et `AuthContext`.
+- Déploiement : la chaîne est prête (images, Cloud Run, tests de fumée) et s'active dès qu'un projet Google Cloud est renseigné dans GitHub ; la modalité de rendu n'étant pas confirmée par l'établissement, aucune URL publique n'est imposée (voir `docs/DEPLOYMENT.md`).
 
 ## 14. Livrables et points à confirmer
 
@@ -354,3 +366,29 @@ Livrables présents dans ce dépôt : code front et back, suite de tests exécut
 **Versions** : le tag `rendu-v1` marque le MVP seul, `rendu-v2` le MVP + bonus B1, `rendu-v3` le MVP + bonus B1 et B4. Le SHA d'un tag s'obtient avec `git rev-list -n 1 <tag>`. `docs/RECETTE.md` indique le SHA du code sur lequel chaque recette a été exécutée.
 
 Points **non confirmés par l'établissement** au moment de la rédaction (section 10 du livret), donc non traités ici : dépôt GitHub public ou privé, archive ZIP, plateforme de dépôt et date de gel, obligation de déploiement cloud, barème, calendrier des soutenances, politique d'utilisation de l'IA.
+
+## 15. Environnements, conteneurs et chaîne CI/CD
+
+Le projet est organisé pour être livré par **pull requests** et validé automatiquement à chaque étape. Détails : `docs/BRANCHING.md` (branches, tickets, releases) et `docs/DEPLOYMENT.md` (environnements, variables, déploiement, évolutions).
+
+**Branches** : `main` = production (releases taguées `rendu-vN`), `develop` = intégration, `feature/*` / `ci/*` / `chore/*` = travail en cours. Tout passe par une pull request vers `develop`, puis une pull request de release `develop → main`. Chaque étape a un ticket GitHub (libellés `étape`, `bonus`, `ci-cd`, `infra`, `documentation`) référencé par sa pull request : ticket + pull request + exécutions GitHub Actions = preuve de l'étape.
+
+**Trois environnements, un seul code** :
+
+| Environnement | Construction | Validation |
+| --- | --- | --- |
+| Développement (poste) | `docker compose up -d`, `npm run dev:backend`, `npm run dev:frontend` | `npm run verify`, `node scripts/recette.js`, `npm run e2e` |
+| Intégration (runner GitHub, éphémère ; reproductible avec `npm run int:up`) | `infra/compose/docker-compose.int.yml` : MongoDB + `backend/Dockerfile` + `frontend/Dockerfile` (nginx qui relaie `/api`) | workflow `Intégration` : recette API 60 points + Playwright 19 tests, rapport en artefact |
+| Production (Google Cloud Run + MongoDB Atlas) | workflow `Production` : images sur GHCR (`ghcr.io/<owner>/taskflow-api`, `taskflow-web`, tags `<sha>` et `latest`), copie vers Artifact Registry, déploiement | tests de fumée Playwright `@smoke` (sans écriture) contre l'URL déployée |
+
+**Workflows** (`.github/workflows/`) :
+
+| Workflow | Déclencheur | Ce qu'il fait |
+| --- | --- | --- |
+| `CI` | pull request ; push sur `develop`, `main` | lint + tests backend (Mongo en service), lint + build frontend, construction des deux images Docker |
+| `Intégration` | pull request vers `develop` ou `main` ; push sur `develop` | démarre la pile Docker complète, rejoue la recette API puis la suite Playwright, publie le rapport, affiche les journaux en cas d'échec |
+| `Production` | push sur `main` ; manuel | publie les images, déploie sur Cloud Run si la variable `GCP_PROJECT_ID` est définie, puis rejoue les tests de fumée |
+
+**Activer le déploiement** : créer un cluster MongoDB Atlas, lancer `infra/gcp/setup.sh` sur un projet Google Cloud (crée Artifact Registry, le compte de service, la fédération d'identité GitHub sans clé JSON et les secrets), puis renseigner dans GitHub les variables `GCP_PROJECT_ID`, `GCP_REGION`, `PROD_WEB_ORIGIN` et les secrets `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`. Tant que ce n'est pas fait, le job de déploiement est ignoré et le workflow reste vert.
+
+**Évolutions** : chaque service supplémentaire (par exemple un assistant s'appuyant sur Vertex AI) suit le même modèle : son conteneur, son entrée dans la pile d'intégration, son job de déploiement, ses tests et son ticket, sans modifier le contrat des cinq routes du livret (voir `docs/DEPLOYMENT.md`).
