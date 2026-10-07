@@ -18,7 +18,8 @@ let taskA1;
 let taskA2;
 let taskB1;
 
-beforeAll(connectTestDb);
+// Délai étendu : le démarrage simultané de plusieurs serveurs MongoDB en mémoire peut être lent.
+beforeAll(connectTestDb, 90_000);
 beforeEach(async () => {
   alice = await registerUser(app, 'alice@example.test');
   bob = await registerUser(app, 'bob@example.test');

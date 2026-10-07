@@ -12,7 +12,8 @@ const { registerUser, bearer, createTask } = require('./helpers/auth');
  * l'application doit retrouver exactement les mêmes données.
  * Le même scénario manuel est décrit dans docs/RECETTE.md.
  */
-beforeAll(connectTestDb);
+// Délai étendu : le démarrage simultané de plusieurs serveurs MongoDB en mémoire peut être lent.
+beforeAll(connectTestDb, 90_000);
 afterAll(disconnectTestDb);
 
 describe('Persistance MongoDB entre deux démarrages de l’API', () => {

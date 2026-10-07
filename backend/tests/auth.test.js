@@ -7,7 +7,8 @@ const { connectTestDb, clearTestDb, disconnectTestDb } = require('./setup/db');
 const app = createApp();
 const credentials = { email: 'alice@example.test', password: 'MotDePasse123!' };
 
-beforeAll(connectTestDb);
+// Délai étendu : le démarrage simultané de plusieurs serveurs MongoDB en mémoire peut être lent.
+beforeAll(connectTestDb, 90_000);
 afterEach(clearTestDb);
 afterAll(disconnectTestDb);
 

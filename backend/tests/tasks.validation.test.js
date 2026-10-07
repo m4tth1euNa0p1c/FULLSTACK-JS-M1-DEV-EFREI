@@ -8,7 +8,8 @@ const app = createApp();
 let token;
 let userId;
 
-beforeAll(connectTestDb);
+// Délai étendu : le démarrage simultané de plusieurs serveurs MongoDB en mémoire peut être lent.
+beforeAll(connectTestDb, 90_000);
 beforeEach(async () => {
   ({ token, user: { id: userId } } = await registerUser(app));
 });
