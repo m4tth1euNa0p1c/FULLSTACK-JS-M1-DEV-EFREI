@@ -1,0 +1,20 @@
+{
+  "name": "taskflow-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Tests de bout en bout TaskFlow (Playwright) : joués contre l'environnement d'intégration et, en sous-ensemble, contre la production",
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report",
+    "install:browsers": "playwright install --with-deps chromium"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
+}
