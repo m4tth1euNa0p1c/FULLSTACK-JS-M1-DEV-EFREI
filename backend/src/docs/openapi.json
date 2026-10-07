@@ -1,0 +1,234 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "TaskFlow API",
+    "version": "1.0.0",
+    "description": "API de gestion de tâches personnelles (TP Full Stack JS, EFREI M1). Toutes les routes sont préfixées par /api. Les routes /api/tasks exigent un JWT transmis dans l'en-tête Authorization: Bearer <token>. Chaque compte ne voit que ses propres tâches."
+  },
+  "servers": [
+    { "url": "http://localhost:3000/api", "description": "Développement local" }
+  ],
+  "tags": [
+    { "name": "Santé", "description": "Supervision" },
+    { "name": "Authentification", "description": "Inscription et connexion (routes publiques)" },
+    { "name": "Tâches", "description": "CRUD des tâches du compte connecté (JWT requis)" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT signé HS256, obtenu via /auth/register ou /auth/login. Expire après JWT_EXPIRES_IN (1h par défaut)."
+      }
+    },
+    "schemas": {
+      "Credentials": {
+        "type": "object",
+        "required": ["email", "password"],
+        "additionalProperties": false,
+        "properties": {
+          "email": { "type": "string", "format": "email", "example": "alice@example.test", "description": "Comparé et stocké en minuscules." },
+          "password": { "type": "string", "minLength": 8, "maxLength": 72, "example": "MotDePasse123!" }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "66f2a1c9e4b0a2d3f4e5b6c7" },
+          "email": { "type": "string", "format": "email", "example": "alice@example.test" }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "user": { "$ref": "#/components/schemas/User" },
+          "token": { "type": "string", "description": "JWT signé", "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NmYyYTFjOWU0YjBhMmQzZjRlNWI2YzciLCJpYXQiOjE3Mjc2ODAwMDAsImV4cCI6MTcyNzY4MzYwMH0.signature" }
+        }
+      },
+      "TaskStatus": {
+        "type": "string",
+        "enum": ["todo", "doing", "done"]
+      },
+      "TaskCreate": {
+        "type": "object",
+        "required": ["title", "status"],
+        "additionalProperties": false,
+        "description": "Les champs id et ownerId sont refusés (400). Toute propriété inconnue est refusée (400).",
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 120, "description": "Trimé côté serveur ; vide après trim refusé.", "example": "Préparer la démo" },
+          "status": { "$ref": "#/components/schemas/TaskStatus" },
+          "description": { "type": "string", "maxLength": 1000, "default": "", "example": "Plan et données" },
+          "dueDate": { "type": "string", "nullable": true, "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "description": "Date civile réelle YYYY-MM-DD ou null. 2026-02-30 est refusé.", "example": "2026-10-05" }
+        }
+      },
+      "TaskPatch": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "description": "Partiel et non vide. Mêmes règles de validation que la création ; id et ownerId refusés (400).",
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "status": { "$ref": "#/components/schemas/TaskStatus" },
+          "description": { "type": "string", "maxLength": 1000 },
+          "dueDate": { "type": "string", "nullable": true, "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+        }
+      },
+      "Task": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "507f1f77bcf86cd799439011" },
+          "title": { "type": "string", "example": "Préparer la démo" },
+          "status": { "$ref": "#/components/schemas/TaskStatus" },
+          "description": { "type": "string", "example": "Plan et données" },
+          "dueDate": { "type": "string", "nullable": true, "example": "2026-10-05" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "TaskList": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/Task" } }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string", "enum": ["INVALID_INPUT", "UNAUTHORIZED", "NOT_FOUND", "EMAIL_ALREADY_USED", "INTERNAL_ERROR"] },
+              "message": { "type": "string", "example": "Message lisible" }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "InvalidInput": {
+        "description": "Corps invalide, champ hors règles ou identifiant malformé",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" }, "example": { "error": { "code": "INVALID_INPUT", "message": "Le statut doit valoir todo, doing, done" } } } }
+      },
+      "Unauthorized": {
+        "description": "JWT absent, invalide, falsifié ou expiré ; ou identifiants de connexion incorrects",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" }, "example": { "error": { "code": "UNAUTHORIZED", "message": "Jeton invalide ou expiré" } } } }
+      },
+      "NotFound": {
+        "description": "Tâche inexistante ou appartenant à un autre compte",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" }, "example": { "error": { "code": "NOT_FOUND", "message": "Tâche introuvable" } } } }
+      },
+      "EmailAlreadyUsed": {
+        "description": "Email déjà enregistré",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" }, "example": { "error": { "code": "EMAIL_ALREADY_USED", "message": "Cet email est déjà utilisé" } } } }
+      }
+    },
+    "parameters": {
+      "TaskId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "ObjectId MongoDB (24 caractères hexadécimaux)",
+        "schema": { "type": "string", "pattern": "^[0-9a-fA-F]{24}$" },
+        "example": "507f1f77bcf86cd799439011"
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Santé"],
+        "summary": "Vérifie que l'API répond",
+        "responses": {
+          "200": {
+            "description": "API opérationnelle",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "status": { "type": "string", "enum": ["ok"] } } }, "example": { "status": "ok" } } }
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["Authentification"],
+        "summary": "Crée un compte et renvoie un JWT",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Credentials" } } } },
+        "responses": {
+          "201": { "description": "Compte créé", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthResponse" } } } },
+          "400": { "$ref": "#/components/responses/InvalidInput" },
+          "409": { "$ref": "#/components/responses/EmailAlreadyUsed" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Authentification"],
+        "summary": "Connecte un utilisateur et renvoie un JWT",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Credentials" } } } },
+        "responses": {
+          "200": { "description": "Connexion réussie", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthResponse" } } } },
+          "400": { "$ref": "#/components/responses/InvalidInput" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/tasks": {
+      "get": {
+        "tags": ["Tâches"],
+        "summary": "Liste les tâches du compte connecté",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Liste (éventuellement vide : {\"items\":[]})", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TaskList" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Tâches"],
+        "summary": "Crée une tâche pour le compte connecté",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TaskCreate" } } } },
+        "responses": {
+          "201": { "description": "Tâche créée", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Task" } } } },
+          "400": { "$ref": "#/components/responses/InvalidInput" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/tasks/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/TaskId" }],
+      "get": {
+        "tags": ["Tâches"],
+        "summary": "Consulte une tâche",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Tâche", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Task" } } } },
+          "400": { "$ref": "#/components/responses/InvalidInput" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "patch": {
+        "tags": ["Tâches"],
+        "summary": "Modifie partiellement une tâche",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TaskPatch" }, "example": { "status": "done" } } } },
+        "responses": {
+          "200": { "description": "Tâche modifiée", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Task" } } } },
+          "400": { "$ref": "#/components/responses/InvalidInput" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Tâches"],
+        "summary": "Supprime une tâche",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "204": { "description": "Supprimée, aucun corps" },
+          "400": { "$ref": "#/components/responses/InvalidInput" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    }
+  }
+}
