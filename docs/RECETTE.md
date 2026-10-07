@@ -55,6 +55,19 @@ Outils : `node scripts/recette.js` joue automatiquement les points marqués **[s
 - [x] Swagger/OpenAPI reflète les routes, schémas et codes d'erreur réellement implémentés — `backend/src/docs/openapi.json`, servi sur `/api/docs` ; relu route par route contre `task.routes.js` et `auth.routes.js`.
 - [x] Le commit SHA final est identifiable et la version démontrée correspond à celle rendue — tag `rendu-v1`, voir ci-dessous.
 
+## Bonus B1 : priorité, filtres et compteurs (après validation du MVP)
+
+Critères d'acceptation définis dans le README (section 10) ; chaque point ci-dessous a été exécuté.
+
+- [x] `priority` vaut `medium` par défaut, accepte `low`/`medium`/`high` en POST et PATCH, refuse toute autre valeur avec 400 — **[script]** et `tests/tasks.bonus-b1.test.js`.
+- [x] `GET /api/tasks` sans paramètre renvoie exactement la même enveloppe qu'avant (`{"items":[…]}`) — **[script]**, test « sans paramètre ».
+- [x] Filtres `status`, `priority`, `due` (`overdue`, `today`, `upcoming`, `none`) et `today`, seuls et combinés — **[script]** (`status=done`, `priority=high`, `due=overdue`) ; les 4 valeurs de `due` et les combinaisons sont couvertes par les tests.
+- [x] Valeur hors liste, paramètre inconnu ou répété → 400 `INVALID_INPUT` — **[script]** (`due=yesterday`, `page=1`) et tests.
+- [x] `GET /api/tasks/stats` renvoie `total`, `byStatus`, `byPriority`, `overdue` pour le compte connecté ; 401 sans JWT ; 400 si `today` invalide — **[script]** et tests.
+- [x] Isolation A/B conservée : aucun filtre ni compteur de B ne voit les tâches de A — **[script]** (compteurs de B à zéro) et tests.
+- [x] Les cinq routes de base et la suite de tests du MVP passent toujours — `npm test` : 145 tests.
+- [x] Interface : sélecteur de priorité, pastille de priorité (liste et détail), compteurs, barre de filtres reflétée dans l'URL, date locale envoyée en `today` — **[navigateur]**.
+
 ## Résultats de la recette du 7 octobre 2026
 
 Environnement : Windows 11, Node.js 20.19.5, npm 11.6.4, MongoDB 7 (Docker `taskflow-mongo`), Chrome (parcours navigateur).
@@ -63,11 +76,12 @@ Environnement : Windows 11, Node.js 20.19.5, npm 11.6.4, MongoDB 7 (Docker `task
 | --- | --- |
 | `npm run lint --prefix backend` | OK, 0 erreur |
 | `npm run lint --prefix frontend` | OK, 0 erreur |
-| `npm test --prefix backend` | 7 suites, **108 tests OK** en ~10 s (base MongoDB en mémoire) |
-| `npm run build --prefix frontend` | OK (`dist/` : index.html, CSS 5 ko, JS 277 ko / 87 ko gzip) |
-| `node scripts/recette.js` | **42/42 points OK** |
+| `npm test --prefix backend` | 8 suites, **145 tests OK** en ~10 s (base MongoDB en mémoire), dont 37 pour le bonus B1 |
+| `npm run build --prefix frontend` | OK (`dist/` : index.html, CSS 6 ko, JS 282 ko / 88 ko gzip) |
+| `node scripts/recette.js` | **52/52 points OK** (42 MVP + 10 bonus B1) |
 | Redémarrage de l'API puis relecture de la tâche conservée | HTTP 200, mêmes données (`id 6ac648b33df272e2887f5777`, titre « Préparer la démo », statut `done`) |
 | Mutation : suppression du filtre `ownerId` dans `task.service.js` | 6 des 11 tests de `tasks.isolation.test.js` échouent, puis repassent après restauration |
 | Parcours navigateur (inscription, erreurs 409/401, création, détail, modification, rechargement, annulation puis confirmation de suppression, tâche supprimée → « introuvable », mobile 375 px, Tab/Entrée/focus visible, jeton falsifié → « session expirée », reconnexion, déconnexion) | 30/30 vérifications OK |
+| Parcours navigateur bonus B1 (priorité haute à la création, pastille dans la liste et le détail, 5 compteurs, filtres statut/priorité/échéance, URL `?status=…`, `today=` envoyé à l'API, réinitialisation) | 10/10 vérifications OK (40/40 au total) |
 
-Version recettée : commit `bf16ad4029aa82747918291826aeaec950804631` (les commits suivants ne touchent que la documentation) ; commit de rendu : tag `rendu-v1` (`git rev-list -n 1 rendu-v1`).
+Version recettée (MVP seul) : commit `bf16ad4029aa82747918291826aeaec950804631`, tag `rendu-v1`. Version recettée (MVP + bonus B1) : commit `49fbb49cc4fd584e99413bfa7bef0191f762b34a` (les commits suivants ne touchent que la documentation), tag `rendu-v2` (`git rev-list -n 1 rendu-v2`).

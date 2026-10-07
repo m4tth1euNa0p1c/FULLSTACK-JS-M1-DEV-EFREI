@@ -6,13 +6,13 @@
 - Terminal 2 : `npm run dev:frontend`.
 - Onglets ouverts : http://localhost:5173 (compte A déjà créé, un compte B prêt dans une fenêtre privée), http://localhost:3000/api/docs, VS Code sur `backend/src`.
 - Terminal 3 : `node scripts/recette.js` (à lancer pendant la partie sécurité) et `npm test --prefix backend`.
-- Avoir le SHA du rendu sous la main : `git rev-list -n 1 rendu-v1`.
+- Avoir le SHA du rendu sous la main : `git rev-list -n 1 rendu-v2` (version complète) ; `rendu-v1` est le MVP seul.
 
 ## Déroulé minuté
 
 ### 1 min — Sujet et objectif
 
-« TaskFlow, sujet A du livret : une application où chaque utilisateur gère ses tâches personnelles (titre, statut à faire / en cours / terminée, description, échéance). Objectif du MVP : inscription et connexion avec JWT, CRUD complet depuis le navigateur, persistance MongoDB, isolation stricte entre comptes, validation serveur, tests et documentation. Tout le socle obligatoire est réalisé ; je n'ai pas ajouté de bonus. »
+« TaskFlow, sujet A du livret : une application où chaque utilisateur gère ses tâches personnelles (titre, statut à faire / en cours / terminée, description, échéance). Objectif du MVP : inscription et connexion avec JWT, CRUD complet depuis le navigateur, persistance MongoDB, isolation stricte entre comptes, validation serveur, tests et documentation. Tout le socle obligatoire est réalisé et recetté ; j'ai ensuite ajouté le bonus B1 du livret (priorité, filtres, compteurs) avec ses critères d'acceptation et 37 tests dédiés, sans toucher aux cinq routes obligatoires. »
 
 ### 2 min — Architecture et chemin d'une requête
 
@@ -32,6 +32,7 @@ Phrase clé : « routes → contrôleur → validateur → service → modèle ;
 1. Inscription d'un nouveau compte (ou connexion A) : montrer l'arrivée sur la liste vide.
 2. Créer une tâche avec description et échéance → message de succès, badge de statut.
 3. Ouvrir le détail, modifier le statut → « Tâche mise à jour ». Recharger la page : la donnée vient du serveur.
+3 bis. (Bonus B1, 20 s) Revenir à la liste : compteurs en haut, filtrer par statut puis par priorité, montrer l'URL `?status=done&priority=high` et le bouton Réinitialiser.
 4. Supprimer : montrer la confirmation, annuler, puis confirmer → liste vide.
 5. Dans la fenêtre privée, compte B : sa liste ne voit pas les tâches de A. Coller l'URL d'une tâche de A → « Tâche introuvable » (404 côté API).
 6. Montrer Swagger : `GET /api/tasks` avec le token de B → `{"items":[]}`.
@@ -54,7 +55,7 @@ Si le temps manque : sauter l'étape 6.
 
 ### 1 min — Limites et améliorations
 
-Pas de révocation de JWT ni de refresh token ; jeton en `localStorage` ; pas de limitation de débit sur la connexion ; pas de pagination ; pas de tests automatisés du front (parcours vérifié manuellement) ; déploiement non réalisé faute de modalité confirmée. Pistes : cookie `httpOnly` + CSRF, rate limiting, bonus B1 (priorité et filtres) avec tests dédiés.
+Bonus réalisé : B1 (champ `priority`, filtres `status`/`priority`/`due` sur la liste, route `/api/tasks/stats`), avec critères d'acceptation dans le README et 37 tests ; les compteurs sont calculés en JavaScript, pas en agrégation MongoDB (choix de lisibilité). Limites : pas de révocation de JWT ni de refresh token ; jeton en `localStorage` ; pas de limitation de débit sur la connexion ; pas de pagination ; pas de tests automatisés du front (parcours vérifié manuellement) ; déploiement non réalisé faute de modalité confirmée. Pistes : cookie `httpOnly` + CSRF, rate limiting, agrégation `$group` pour les compteurs, bonus B4 (statistiques hebdomadaires).
 
 ## Questions probables et éléments de réponse
 
@@ -73,6 +74,10 @@ Pas de révocation de JWT ni de refresh token ; jeton en `localStorage` ; pas de
 | Pourquoi Express 5 ? | Les promesses rejetées dans les contrôleurs sont transmises automatiquement au gestionnaire d'erreurs : pas de `try/catch` répétitif. |
 | Rôle de Vite / Babel / Webpack ? | Vite : serveur de dev et build (Rollup) ; Babel : transpilation (JSX, syntaxe moderne), remplacé ici par esbuild/oxc via le plugin React ; Webpack : bundler historique, rôle tenu ici par Vite. |
 | Où placerais-tu les tests dans une chaîne CI/CD ? | Avant tout déploiement : le workflow GitHub Actions lance lint, tests et build à chaque push ; un déploiement ne partirait qu'après succès. |
+| (B1) Comment « en retard » gère-t-il le fuseau horaire ? | Le front envoie sa date locale dans le paramètre `today` ; le serveur compare les chaînes `YYYY-MM-DD` (ordre alphabétique = chronologique). Sans `today`, il prend sa date UTC. Les tests fixent `today` pour être déterministes. |
+| (B1) Pourquoi un paramètre de requête inconnu donne-t-il 400 ? | Même philosophie que pour les corps JSON : liste blanche. Une faute de frappe dans un filtre ne doit pas renvoyer silencieusement toutes les tâches. |
+| (B1) Pourquoi `/tasks/stats` est-elle déclarée avant `/tasks/:id` ? | Express teste les routes dans l'ordre : sinon « stats » serait pris pour un identifiant et refusé par `validateObjectId` (400). |
+| (B1) Le bonus a-t-il modifié le contrat de base ? | Non : sans paramètre, `GET /api/tasks` renvoie exactement `{"items":[…]}` ; `priority` est une propriété supplémentaire non sensible, autorisée par le livret ; la suite de tests du MVP passe inchangée. |
 
 ## Questions pour vérifier sa propre compréhension (s'entraîner à y répondre sans notes)
 

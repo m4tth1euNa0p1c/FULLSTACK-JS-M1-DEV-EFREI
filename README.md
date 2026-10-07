@@ -4,6 +4,8 @@ Application web de gestion de tâches personnelles, réalisée dans le cadre du 
 
 Chaque utilisateur crée un compte, se connecte et gère **ses** tâches (titre, statut, description, échéance). Les données d'un compte sont invisibles pour les autres, y compris par requête HTTP directe : l'autorisation est appliquée dans l'API, pas seulement dans l'interface.
 
+Le MVP du livret est complet. Le **bonus B1** (priorité, filtres et compteurs) a été ajouté ensuite, avec ses critères d'acceptation et ses tests dédiés (voir section 10) ; les cinq routes CRUD obligatoires sont inchangées.
+
 ## Sommaire
 
 1. [Stack et versions](#1-stack-et-versions)
@@ -128,11 +130,11 @@ Au démarrage, l'API affiche `MongoDB connecté` puis l'URL de l'API et de Swagg
 Depuis la racine :
 
 ```bash
-npm test                       # suite Jest + Supertest du backend (108 tests, ~10 s)
+npm test                       # suite Jest + Supertest du backend (145 tests, ~10 s)
 npm run lint                   # ESLint backend puis frontend
 npm run build                  # build de production du front (frontend/dist)
 npm run verify                 # les trois à la suite
-node scripts/recette.js        # recette automatisée du contrat API contre une API démarrée (42 points)
+node scripts/recette.js        # recette automatisée du contrat API contre une API démarrée (52 points, bonus B1 inclus)
 ```
 
 Dans `backend/` : `npm test -- tests/tasks.isolation.test.js` (un fichier), `npm test -- -t "PATCH vide"` (un test par nom), `npm run test:coverage`.
@@ -154,6 +156,7 @@ MONGO_URI_TEST=mongodb://127.0.0.1:27017 npm test --prefix backend
 | `tasks.validation.test.js` | 29 corps invalides en POST, 13 en PATCH (dates impossibles, `id`/`ownerId`, champs inconnus, PATCH vide…), cas limites acceptés |
 | `tasks.isolation.test.js` | comptes A/B : liste, lecture, modification, suppression → 404 et état en base intact ; `ownerId` imposé par le serveur |
 | `persistence.test.js` | données et connexion conservées après fermeture/réouverture de la connexion et nouvelle instance de l'application |
+| `tasks.bonus-b1.test.js` | bonus B1 : `priority` (défaut, valeurs, 400), filtres `status`/`priority`/`due`/`today` seuls et combinés, paramètres invalides ou inconnus → 400, isolation A/B des filtres, `/tasks/stats` (compteurs, zéros, isolation, 400, 401) |
 
 Le test d'isolation détecte réellement une régression : retirer `ownerId` du filtre dans `backend/src/services/task.service.js` fait échouer 6 des 11 tests de ce fichier (vérifié).
 
@@ -170,7 +173,7 @@ Le test d'isolation détecte réellement une régression : retirer `ownerId` du 
 │   │   ├── config/                # env.js (variables d'environnement), db.js (Mongoose)
 │   │   ├── routes/                # health, auth, tasks + montage Swagger (index.js)
 │   │   ├── controllers/           # lisent la requête, appellent validateur + service, fixent le code HTTP
-│   │   ├── validators/            # règles du contrat (liste blanche de champs, longueurs, dates réelles)
+│   │   ├── validators/            # règles du contrat (liste blanche de champs, longueurs, dates réelles) + filtres de liste (B1)
 │   │   ├── services/              # logique métier et accès Mongoose, toujours filtré par ownerId
 │   │   ├── models/                # User (email unique, passwordHash), Task (ownerId, title, status…)
 │   │   ├── middlewares/           # requireAuth (Bearer), validateObjectId, notFound, errorHandler
@@ -181,9 +184,9 @@ Le test d'isolation détecte réellement une régression : retirer `ownerId` du 
 │   └── src/
 │       ├── api/                   # client.js (fetch + Bearer + ApiError), jwt.js (lecture de exp)
 │       ├── context/               # AuthContext (session, login/register/logout, request), useAuth
-│       ├── components/            # Layout, ProtectedRoute, GuestRoute, TaskForm, Alert, StatusBadge
-│       ├── pages/                 # Login, Register, Tasks (liste), NewTask, TaskDetail (détail/édition/suppression)
-│       └── utils/                 # taskForm.js (validation client, conversion API), taskStatus.js
+│       ├── components/            # Layout, ProtectedRoute, GuestRoute, TaskForm, Alert, StatusBadge, PriorityBadge (B1)
+│       ├── pages/                 # Login, Register, Tasks (liste, filtres et compteurs B1), NewTask, TaskDetail (détail/édition/suppression)
+│       └── utils/                 # taskForm.js (validation client, conversion API), taskStatus.js (libellés), dates.js (date locale)
 ├── scripts/recette.js             # recette automatisée du contrat API
 ├── docs/                          # livret, RECETTE.md (checklist), SOUTENANCE.md (préparation orale)
 ├── docker-compose.yml             # MongoDB 7 de développement
@@ -220,10 +223,43 @@ Toutes les routes commencent par `/api`, lisent et renvoient du JSON UTF-8.
 | GET | `/api/tasks/:id` | Bearer | 200 tâche | 400, 401, 404 |
 | PATCH | `/api/tasks/:id` | Bearer | 200 tâche modifiée | 400, 401, 404 |
 | DELETE | `/api/tasks/:id` | Bearer | 204 sans corps | 400, 401, 404 |
+| GET | `/api/tasks/stats` (bonus B1) | Bearer | 200 compteurs | 400, 401 |
 
 Erreurs : `{"error":{"code":"INVALID_INPUT" | "UNAUTHORIZED" | "NOT_FOUND" | "EMAIL_ALREADY_USED","message":"…"}}` (400 / 401 / 404 / 409).
 
 Règles de validation (serveur) : `title` trimé, 1 à 120 caractères, obligatoire ; `status` exactement `todo`, `doing` ou `done`, obligatoire ; `description` 0 à 1000 caractères, chaîne vide acceptée ; `dueDate` date civile réelle `YYYY-MM-DD` ou `null`. `id`, `_id`, `ownerId` et tout champ inconnu sont refusés (400) en POST comme en PATCH ; un PATCH vide est refusé.
+
+### Bonus B1 : priorité, filtres et compteurs
+
+Réalisé après validation du MVP, conformément au livret (« Champ priority (low, medium, high), filtre par statut/échéance et compteur de tâches. Les routes additionnelles ne remplacent pas le CRUD obligatoire. »).
+
+**Critères d'acceptation** (tous couverts par `backend/tests/tasks.bonus-b1.test.js`, 37 tests) :
+
+1. `priority` ∈ `low` | `medium` | `high`, facultative à la création (`medium` par défaut), modifiable en PATCH ; toute autre valeur → 400 `INVALID_INPUT`. Présente dans toutes les réponses de tâche.
+2. `GET /api/tasks` accepte les paramètres facultatifs et combinables `status`, `priority`, `due` et `today` ; sans paramètre, la réponse est identique au MVP (`{"items":[…]}`). Valeur hors liste, paramètre inconnu ou répété → 400.
+3. `GET /api/tasks/stats` → 200 `{"total","byStatus":{"todo","doing","done"},"byPriority":{"low","medium","high"},"overdue"}` ; JWT requis ; ne compte que les tâches du compte connecté.
+4. Les filtres et les compteurs n'exposent jamais les tâches d'un autre compte ; les cinq routes de base et leur suite de tests restent inchangées.
+
+| Paramètre | Valeurs | Sens |
+| --- | --- | --- |
+| `status` | `todo`, `doing`, `done` | statut exact |
+| `priority` | `low`, `medium`, `high` | priorité exacte |
+| `due` | `overdue` | échéance strictement antérieure à la date de référence **et** statut différent de `done` |
+| | `today` | échéance égale à la date de référence |
+| | `upcoming` | échéance supérieure ou égale à la date de référence |
+| | `none` | sans échéance (`dueDate` null) |
+| `today` | `YYYY-MM-DD` | date de référence ; par défaut la date UTC du serveur. Le front envoie sa date locale pour que « en retard » suive le fuseau de l'utilisateur. Fonctionne aussi sur `/tasks/stats`. |
+
+Les dates civiles `YYYY-MM-DD` sont comparées comme des chaînes (ordre alphabétique = ordre chronologique) ; MongoDB ne compare `$lt`/`$gte` qu'entre valeurs de même type, donc une échéance `null` n'est jamais « en retard ».
+
+```bash
+curl -s "http://localhost:3000/api/tasks?status=todo&priority=high" -H "Authorization: Bearer $TOKEN"
+curl -s "http://localhost:3000/api/tasks?due=overdue&today=2026-10-07" -H "Authorization: Bearer $TOKEN"
+curl -s "http://localhost:3000/api/tasks/stats?today=2026-10-07" -H "Authorization: Bearer $TOKEN"
+# → {"total":5,"byStatus":{"todo":3,"doing":1,"done":1},"byPriority":{"low":2,"medium":2,"high":1},"overdue":1}
+```
+
+Côté interface : sélecteur de priorité dans le formulaire, pastille de priorité dans la liste et le détail, barre de filtres (statut, priorité, échéance) dont l'état vit dans l'URL (`/tasks?status=todo&due=overdue`), compteurs au-dessus de la liste.
 
 Exemple complet :
 
@@ -268,7 +304,8 @@ La documentation interactive (Swagger UI) permet de rejouer ces appels : bouton 
 - Jeton en `localStorage` (voir section 11). Amélioration : cookie `httpOnly` + CSRF.
 - Pas de limitation de débit sur `/api/auth/login` (force brute possible). Amélioration : `express-rate-limit`.
 - La connexion répond un peu plus vite quand l'email n'existe pas (pas de `bcrypt.compare`) : différence de temps mesurable en théorie. Amélioration : comparer contre un hash factice.
-- Pas de pagination ni de filtres sur la liste (hors MVP ; bonus B1 du livret).
+- Pas de pagination : la liste renvoie toutes les tâches du compte (filtrées ou non). Suffisant pour un usage personnel, à revoir au-delà de quelques centaines de tâches.
+- Les compteurs (`/tasks/stats`) sont calculés en JavaScript après lecture des tâches du compte, pas par agrégation MongoDB : simple à expliquer, à remplacer par un pipeline `$group` si le volume grandit.
 - Pas de tests automatisés du front (un parcours navigateur a été vérifié manuellement et décrit dans `docs/RECETTE.md`). Amélioration : Playwright ou React Testing Library.
 - Pas de déploiement : la modalité n'est pas confirmée par l'établissement. Le build et la configuration par variables d'environnement sont prêts.
 
@@ -276,6 +313,6 @@ La documentation interactive (Swagger UI) permet de rejouer ces appels : bouton 
 
 Livrables présents dans ce dépôt : code front et back, suite de tests exécutable, `README.md`, `.env.example` (sans secret), documentation OpenAPI (`/api/docs`), checklist de recette (`docs/RECETTE.md`), préparation de soutenance (`docs/SOUTENANCE.md`), historique Git.
 
-**Version rendue** : le commit final est tagué `rendu-v1` ; son SHA complet s'obtient avec `git rev-list -n 1 rendu-v1`. `docs/RECETTE.md` indique le SHA du code sur lequel la recette a été exécutée.
+**Versions** : le tag `rendu-v1` marque le MVP seul ; le tag `rendu-v2` marque la version complète (MVP + bonus B1). Le SHA d'un tag s'obtient avec `git rev-list -n 1 <tag>`. `docs/RECETTE.md` indique le SHA du code sur lequel la recette a été exécutée.
 
 Points **non confirmés par l'établissement** au moment de la rédaction (section 10 du livret), donc non traités ici : dépôt GitHub public ou privé, archive ZIP, plateforme de dépôt et date de gel, obligation de déploiement cloud, barème, calendrier des soutenances, politique d'utilisation de l'IA.
