@@ -1,5 +1,6 @@
 const Task = require('../models/Task');
 const { notFound } = require('../utils/errors');
+const { computeWeeklyStats } = require('../utils/weeklyStats');
 
 /**
  * Toutes les requêtes filtrent sur ownerId : une tâche qui n'appartient pas
@@ -30,7 +31,9 @@ async function listTasks(ownerId, filters = {}) {
 }
 
 async function createTask(ownerId, data) {
-  const task = await Task.create({ ...data, ownerId });
+  // Bonus B4 : une tâche créée directement "done" est terminée à l'instant de sa création.
+  const completedAt = data.status === 'done' ? new Date() : null;
+  const task = await Task.create({ ...data, ownerId, completedAt });
   return task.toJSON();
 }
 
@@ -40,13 +43,26 @@ async function getTask(ownerId, taskId) {
   return task.toJSON();
 }
 
+/**
+ * Lecture puis sauvegarde (deux requêtes) plutôt que findOneAndUpdate : on a besoin
+ * de l'état précédent pour gérer completedAt, et save() rejoue les validateurs Mongoose.
+ */
 async function updateTask(ownerId, taskId, changes) {
-  const task = await Task.findOneAndUpdate(
-    { _id: taskId, ownerId },
-    { $set: changes },
-    { returnDocument: 'after', runValidators: true },
-  );
+  const task = await Task.findOne({ _id: taskId, ownerId });
   if (!task) throw notFound('Tâche introuvable');
+
+  task.set(changes);
+
+  // Bonus B4 : completedAt suit le statut et n'est jamais fourni par le client.
+  if (changes.status !== undefined) {
+    if (changes.status === 'done') {
+      if (!task.completedAt) task.completedAt = new Date();
+    } else {
+      task.completedAt = null;
+    }
+  }
+
+  await task.save();
   return task.toJSON();
 }
 
@@ -76,4 +92,28 @@ async function getTaskStats(ownerId, today) {
   return stats;
 }
 
-module.exports = { listTasks, createTask, getTask, updateTask, deleteTask, getTaskStats, buildListFilter };
+/**
+ * Bonus B4 : séries hebdomadaires du compte connecté (calcul dans utils/weeklyStats.js).
+ * Les tâches terminées avant l'ajout de completedAt n'ont pas cet instant : on retient
+ * alors leur dernière modification, seule information disponible.
+ */
+async function getWeeklyStats(ownerId, options) {
+  const tasks = await Task.find({ ownerId }).select('status createdAt completedAt updatedAt').lean();
+  const normalized = tasks.map((task) => ({
+    status: task.status,
+    createdAt: task.createdAt,
+    completedAt: task.completedAt ?? (task.status === 'done' ? task.updatedAt : null),
+  }));
+  return computeWeeklyStats(normalized, options);
+}
+
+module.exports = {
+  listTasks,
+  createTask,
+  getTask,
+  updateTask,
+  deleteTask,
+  getTaskStats,
+  getWeeklyStats,
+  buildListFilter,
+};

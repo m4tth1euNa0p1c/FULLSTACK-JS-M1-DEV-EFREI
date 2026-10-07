@@ -3,13 +3,19 @@ const { isCivilDate, todayCivilDate } = require('../utils/civilDate');
 const { TASK_STATUSES, TASK_PRIORITIES } = require('../models/Task');
 
 /**
- * Bonus B1 : paramètres de requête de GET /api/tasks et GET /api/tasks/stats.
+ * Paramètres de requête des routes de liste et de statistiques (bonus B1 et B4).
  * Même philosophie que pour les corps JSON : liste blanche, valeurs énumérées,
  * tout écart donne 400 INVALID_INPUT. Sans paramètre, le comportement du MVP est inchangé.
  */
 const DUE_FILTERS = ['overdue', 'today', 'upcoming', 'none'];
 const LIST_PARAMS = ['status', 'priority', 'due', 'today'];
 const STATS_PARAMS = ['today'];
+const WEEKLY_PARAMS = ['weeks', 'today', 'tzOffset'];
+
+const WEEKS_DEFAULT = 8;
+const WEEKS_MAX = 26;
+// Décalage horaire maximal existant : 14 h (UTC+14 / UTC-12), en minutes.
+const TZ_OFFSET_MAX = 14 * 60;
 
 function checkParams(query, allowed) {
   const unknown = Object.keys(query).filter((key) => !allowed.includes(key));
@@ -27,8 +33,21 @@ function oneOf(query, name, values) {
   return value;
 }
 
+function integerParam(query, name, { min, max, defaultValue }) {
+  const value = query[name];
+  if (value === undefined) return defaultValue;
+  if (typeof value !== 'string' || !/^-?\d+$/.test(value)) {
+    throw invalidInput(`Le paramètre ${name} doit être un entier`);
+  }
+  const number = Number(value);
+  if (number < min || number > max) {
+    throw invalidInput(`Le paramètre ${name} doit être compris entre ${min} et ${max}`);
+  }
+  return number;
+}
+
 /**
- * Date de référence pour "en retard", "aujourd'hui" et "à venir".
+ * Date de référence pour "en retard", "aujourd'hui", "à venir" et la semaine courante.
  * Le client peut l'imposer (sa date locale) ; sinon on prend la date UTC du serveur.
  */
 function referenceDate(query) {
@@ -54,4 +73,21 @@ function validateStatsQuery(query = {}) {
   return { today: referenceDate(query) };
 }
 
-module.exports = { validateTaskListQuery, validateStatsQuery, DUE_FILTERS };
+/** Bonus B4 : nombre de semaines, date de référence et décalage horaire du client. */
+function validateWeeklyStatsQuery(query = {}) {
+  checkParams(query, WEEKLY_PARAMS);
+  return {
+    weeks: integerParam(query, 'weeks', { min: 1, max: WEEKS_MAX, defaultValue: WEEKS_DEFAULT }),
+    today: referenceDate(query),
+    tzOffset: integerParam(query, 'tzOffset', { min: -TZ_OFFSET_MAX, max: TZ_OFFSET_MAX, defaultValue: 0 }),
+  };
+}
+
+module.exports = {
+  validateTaskListQuery,
+  validateStatsQuery,
+  validateWeeklyStatsQuery,
+  DUE_FILTERS,
+  WEEKS_DEFAULT,
+  WEEKS_MAX,
+};

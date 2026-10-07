@@ -1,6 +1,10 @@
 const taskService = require('../services/task.service');
 const { validateTaskCreate, validateTaskPatch } = require('../validators/task.validator');
-const { validateTaskListQuery, validateStatsQuery } = require('../validators/taskQuery.validator');
+const {
+  validateTaskListQuery,
+  validateStatsQuery,
+  validateWeeklyStatsQuery,
+} = require('../validators/taskQuery.validator');
 
 async function list(req, res) {
   // Bonus B1 : filtres facultatifs (status, priority, due, today). Sans paramètre : toutes les tâches.
@@ -38,4 +42,11 @@ async function stats(req, res) {
   res.status(200).json(result);
 }
 
-module.exports = { list, create, getOne, update, remove, stats };
+// Bonus B4 : taux de complétion hebdomadaire et évolution par semaine.
+async function weeklyStats(req, res) {
+  const options = validateWeeklyStatsQuery(req.query);
+  const result = await taskService.getWeeklyStats(req.user.id, options);
+  res.status(200).json(result);
+}
+
+module.exports = { list, create, getOne, update, remove, stats, weeklyStats };

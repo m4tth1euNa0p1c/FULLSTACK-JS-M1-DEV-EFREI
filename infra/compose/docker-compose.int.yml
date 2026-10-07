@@ -1,0 +1,49 @@
+# Environnement d'intégration : la pile complète (MongoDB + API + front nginx) construite
+# depuis les sources, telle qu'elle est exécutée dans GitHub Actions avant tout déploiement.
+#
+#   docker compose -f infra/compose/docker-compose.int.yml up -d --build --wait
+#   E2E_BASE_URL=http://localhost:8080 npm test --prefix e2e
+#   API_URL=http://localhost:3000/api node scripts/recette.js
+#   docker compose -f infra/compose/docker-compose.int.yml down -v
+#
+# Variables surchargeables : JWT_SECRET (clé de test par défaut), WEB_PORT (8080), API_PORT (3000).
+name: taskflow-int
+
+services:
+  mongo:
+    image: mongo:7
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build:
+      context: ../../backend
+    image: taskflow-api:int
+    environment:
+      PORT: "3000"
+      MONGO_URI: mongodb://mongo:27017/taskflow_int
+      JWT_SECRET: ${JWT_SECRET:-cle-d-integration-non-secrete-a-ne-pas-utiliser-en-production}
+      JWT_EXPIRES_IN: 1h
+      BCRYPT_ROUNDS: "10"
+      CORS_ORIGIN: http://localhost:${WEB_PORT:-8080}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ../../frontend
+    image: taskflow-web:int
+    environment:
+      PORT: "8080"
+      API_UPSTREAM: http://api:3000
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy

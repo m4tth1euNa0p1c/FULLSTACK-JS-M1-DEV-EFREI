@@ -1,0 +1,168 @@
+name: Production
+
+# Chaîne de production, déclenchée par une fusion dans main (release) :
+#   1. images     : construit et publie les images API et front sur GitHub Container Registry,
+#                   étiquetées avec le SHA du commit et "latest" ;
+#   2. deploy     : déploie ces images sur Google Cloud Run (API puis front), uniquement si la
+#                   variable de dépôt GCP_PROJECT_ID est renseignée (voir docs/DEPLOYMENT.md) ;
+#   3. smoke      : rejoue les tests Playwright @smoke (sans écriture) contre l'URL déployée.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  images:
+    name: Images de production (GHCR)
+    runs-on: ubuntu-latest
+    outputs:
+      api_image: ${{ steps.names.outputs.api }}
+      web_image: ${{ steps.names.outputs.web }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Noms d'images (GHCR exige des minuscules)
+        id: names
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "api=ghcr.io/${owner}/taskflow-api" >> "$GITHUB_OUTPUT"
+          echo "web=ghcr.io/${owner}/taskflow-web" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Publier l'image de l'API
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: true
+          tags: |
+            ${{ steps.names.outputs.api }}:${{ github.sha }}
+            ${{ steps.names.outputs.api }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+
+      - name: Publier l'image du front
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: true
+          tags: |
+            ${{ steps.names.outputs.web }}:${{ github.sha }}
+            ${{ steps.names.outputs.web }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+
+  deploy:
+    name: Déploiement Cloud Run
+    needs: images
+    # Ne s'exécute que lorsque le projet Google Cloud est configuré (variable de dépôt).
+    if: vars.GCP_PROJECT_ID != ''
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.web.outputs.url }}
+    outputs:
+      url: ${{ steps.web.outputs.url }}
+    env:
+      AR_HOST: ${{ vars.GCP_REGION }}-docker.pkg.dev
+      AR_API: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/taskflow/taskflow-api
+      AR_WEB: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/taskflow/taskflow-web
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Authentification Google Cloud (Workload Identity Federation, sans clé)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Copier les images GHCR vers Artifact Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          gcloud auth configure-docker "$AR_HOST" --quiet
+          for pair in "${{ needs.images.outputs.api_image }}=$AR_API" "${{ needs.images.outputs.web_image }}=$AR_WEB"; do
+            src="${pair%%=*}:${{ github.sha }}"; dst="${pair##*=}:${{ github.sha }}"
+            docker pull "$src" && docker tag "$src" "$dst" && docker push "$dst"
+          done
+
+      - name: Déployer l'API
+        id: api
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: taskflow-api
+          region: ${{ vars.GCP_REGION }}
+          image: ${{ env.AR_API }}:${{ github.sha }}
+          env_vars: |
+            NODE_ENV=production
+            JWT_EXPIRES_IN=1h
+            BCRYPT_ROUNDS=10
+            CORS_ORIGIN=${{ vars.PROD_WEB_ORIGIN }}
+          secrets: |
+            MONGO_URI=taskflow-mongo-uri:latest
+            JWT_SECRET=taskflow-jwt-secret:latest
+          flags: --allow-unauthenticated --port=3000 --min-instances=0 --max-instances=2
+
+      - name: Déployer le front
+        id: web
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: taskflow-web
+          region: ${{ vars.GCP_REGION }}
+          image: ${{ env.AR_WEB }}:${{ github.sha }}
+          env_vars: |
+            API_UPSTREAM=${{ steps.api.outputs.url }}
+          flags: --allow-unauthenticated --port=8080 --min-instances=0 --max-instances=2
+
+  smoke:
+    name: Tests de fumée en production
+    needs: deploy
+    if: needs.deploy.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - name: Installer Playwright
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Tests @smoke (sans écriture) contre la production
+        working-directory: e2e
+        run: npm run test:smoke
+        env:
+          E2E_BASE_URL: ${{ needs.deploy.outputs.url }}
+          CI: "true"
+      - name: Publier le rapport Playwright
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-production
+          path: e2e/playwright-report
+          retention-days: 30
