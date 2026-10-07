@@ -1,16 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Alert from '../components/Alert';
+import PriorityBadge from '../components/PriorityBadge';
 import StatusBadge from '../components/StatusBadge';
 import TaskForm from '../components/TaskForm';
 import { fromTask, toApiPayload } from '../utils/taskForm';
+import { formatCivilDate } from '../utils/dates';
 import { useAuth } from '../context/useAuth';
-
-function formatDate(isoDate) {
-  if (!isoDate) return 'Aucune';
-  const [year, month, day] = isoDate.split('-');
-  return `${day}/${month}/${year}`;
-}
 
 /** Ne garde que les champs réellement modifiés : le PATCH reste partiel. */
 function diffPayload(before, after) {
@@ -145,8 +141,12 @@ export default function TaskDetailPage() {
             <dd>
               <StatusBadge status={task.status} />
             </dd>
+            <dt>Priorité</dt>
+            <dd>
+              <PriorityBadge priority={task.priority} />
+            </dd>
             <dt>Échéance</dt>
-            <dd>{formatDate(task.dueDate)}</dd>
+            <dd>{formatCivilDate(task.dueDate)}</dd>
             <dt>Description</dt>
             <dd>{task.description ? task.description : <span className="muted">Aucune description</span>}</dd>
             <dt>Identifiant</dt>

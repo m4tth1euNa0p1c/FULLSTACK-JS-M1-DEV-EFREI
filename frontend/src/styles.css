@@ -368,6 +368,70 @@ textarea {
   border-radius: 8px;
 }
 
+/* ---------- Bonus B1 : priorité, filtres, compteurs ---------- */
+.badge--priority-low {
+  background: #eef7f1;
+  color: #2e6b45;
+}
+.badge--priority-medium {
+  background: #e9f0ff;
+  color: #2b4aa8;
+}
+.badge--priority-high {
+  background: #fdecec;
+  color: #a12626;
+}
+
+.stats {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.6rem;
+}
+.stat {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.stat__value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.stat__label {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+.stat--alert {
+  border-color: #f3b4b4;
+  background: var(--color-error-bg);
+}
+.stat--alert .stat__value {
+  color: var(--color-error-text);
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem 1rem;
+  align-items: end;
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+.filters .field {
+  gap: 0.25rem;
+}
+.filters__actions {
+  display: flex;
+  align-items: flex-end;
+}
+
 /* ---------- Mobile ---------- */
 @media (max-width: 600px) {
   .detail-grid {

@@ -1,9 +1,9 @@
-import { STATUS_LABELS } from './taskStatus';
+import { PRIORITY_LABELS, STATUS_LABELS } from './taskStatus';
 
 export const TITLE_MAX = 120;
 export const DESCRIPTION_MAX = 1000;
 
-export const EMPTY_TASK = { title: '', status: 'todo', description: '', dueDate: '' };
+export const EMPTY_TASK = { title: '', status: 'todo', priority: 'medium', description: '', dueDate: '' };
 
 /**
  * Validation côté client : aide l'utilisateur avant l'envoi, mais ne remplace
@@ -15,6 +15,7 @@ export function validateTaskForm(values) {
   if (!title) errors.title = 'Le titre est obligatoire.';
   else if (title.length > TITLE_MAX) errors.title = `Le titre ne peut pas dépasser ${TITLE_MAX} caractères.`;
   if (!Object.keys(STATUS_LABELS).includes(values.status)) errors.status = 'Statut invalide.';
+  if (!Object.keys(PRIORITY_LABELS).includes(values.priority)) errors.priority = 'Priorité invalide.';
   if (values.description.length > DESCRIPTION_MAX) {
     errors.description = `La description ne peut pas dépasser ${DESCRIPTION_MAX} caractères.`;
   }
@@ -29,6 +30,7 @@ export function toApiPayload(values) {
   return {
     title: values.title.trim(),
     status: values.status,
+    priority: values.priority,
     description: values.description,
     dueDate: values.dueDate ? values.dueDate : null,
   };
@@ -39,6 +41,7 @@ export function fromTask(task) {
   return {
     title: task.title ?? '',
     status: task.status ?? 'todo',
+    priority: task.priority ?? 'medium',
     description: task.description ?? '',
     dueDate: task.dueDate ?? '',
   };

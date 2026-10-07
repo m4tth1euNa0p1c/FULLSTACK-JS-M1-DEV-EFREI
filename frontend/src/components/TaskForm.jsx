@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { STATUS_LABELS } from '../utils/taskStatus';
+import { PRIORITY_LABELS, STATUS_LABELS } from '../utils/taskStatus';
 import { DESCRIPTION_MAX, EMPTY_TASK, TITLE_MAX, validateTaskForm } from '../utils/taskForm';
 
 export default function TaskForm({
@@ -62,6 +62,23 @@ export default function TaskForm({
           ))}
         </select>
         {errors.status && <p className="field__error">{errors.status}</p>}
+      </div>
+
+      <div className="field">
+        <label htmlFor={`${idPrefix}-priority`}>Priorité</label>
+        <select
+          id={`${idPrefix}-priority`}
+          value={values.priority}
+          onChange={update('priority')}
+          aria-invalid={Boolean(errors.priority)}
+        >
+          {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        {errors.priority && <p className="field__error">{errors.priority}</p>}
       </div>
 
       <div className="field">
