@@ -1,7 +1,7 @@
 # API TaskFlow : image de production (Node.js 20, dépendances de production uniquement).
 # Image glibc (Debian slim) plutôt qu'Alpine : bcrypt dispose de binaires précompilés
 # pour cette cible, aucune compilation native n'est nécessaire.
-FROM node:20-bookworm-slim
+FROM node:25-bookworm-slim
 
 ENV NODE_ENV=production \
     PORT=3000
