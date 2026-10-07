@@ -1,19 +1,17 @@
 import { useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Alert from '../components/Alert';
 import { useAuth } from '../context/useAuth';
 
 const PASSWORD_MIN_LENGTH = 8;
 
 export default function RegisterPage() {
-  const { register, isAuthenticated } = useAuth();
+  const { register } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
-
-  if (isAuthenticated) return <Navigate to="/tasks" replace />;
 
   const handleSubmit = async (event) => {
     event.preventDefault();

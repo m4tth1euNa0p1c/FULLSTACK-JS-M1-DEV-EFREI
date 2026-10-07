@@ -24,8 +24,8 @@ export default function NewTaskPage() {
   };
 
   return (
-    <section className="card card--narrow" aria-labelledby="new-task-title">
-      <h1 id="new-task-title">Nouvelle tâche</h1>
+    <section className="card card--narrow" aria-labelledby="new-task-heading">
+      <h1 id="new-task-heading">Nouvelle tâche</h1>
       <Alert type="error">{error}</Alert>
       <TaskForm
         onSubmit={handleSubmit}

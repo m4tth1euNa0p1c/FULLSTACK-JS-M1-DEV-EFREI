@@ -1,18 +1,16 @@
 import { useState } from 'react';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Alert from '../components/Alert';
 import { useAuth } from '../context/useAuth';
 
 export default function LoginPage() {
-  const { login, isAuthenticated, notice, clearNotice } = useAuth();
+  const { login, notice, clearNotice } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
-
-  if (isAuthenticated) return <Navigate to="/tasks" replace />;
 
   const handleSubmit = async (event) => {
     event.preventDefault();
