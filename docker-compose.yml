@@ -1,0 +1,16 @@
+# MongoDB de développement (optionnel si MongoDB est installé en local).
+# Démarrage : docker compose up -d
+# Arrêt     : docker compose down        (les données restent dans le volume)
+# Purge     : docker compose down -v     (supprime aussi le volume)
+services:
+  mongo:
+    image: mongo:7
+    container_name: taskflow-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - taskflow-mongo-data:/data/db
+
+volumes:
+  taskflow-mongo-data:
