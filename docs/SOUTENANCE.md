@@ -6,13 +6,13 @@
 - Terminal 2 : `npm run dev:frontend`.
 - Onglets ouverts : http://localhost:5173 (compte A déjà créé, un compte B prêt dans une fenêtre privée), http://localhost:3000/api/docs, VS Code sur `backend/src`.
 - Terminal 3 : `node scripts/recette.js` (à lancer pendant la partie sécurité) et `npm test --prefix backend`.
-- Avoir le SHA du rendu sous la main : `git rev-list -n 1 rendu-v2` (version complète) ; `rendu-v1` est le MVP seul.
+- Avoir le SHA du rendu sous la main : `git rev-list -n 1 rendu-v3` (version complète) ; `rendu-v1` est le MVP seul, `rendu-v2` le MVP + B1.
 
 ## Déroulé minuté
 
 ### 1 min — Sujet et objectif
 
-« TaskFlow, sujet A du livret : une application où chaque utilisateur gère ses tâches personnelles (titre, statut à faire / en cours / terminée, description, échéance). Objectif du MVP : inscription et connexion avec JWT, CRUD complet depuis le navigateur, persistance MongoDB, isolation stricte entre comptes, validation serveur, tests et documentation. Tout le socle obligatoire est réalisé et recetté ; j'ai ensuite ajouté le bonus B1 du livret (priorité, filtres, compteurs) avec ses critères d'acceptation et 37 tests dédiés, sans toucher aux cinq routes obligatoires. »
+« TaskFlow, sujet A du livret : une application où chaque utilisateur gère ses tâches personnelles (titre, statut à faire / en cours / terminée, description, échéance). Objectif du MVP : inscription et connexion avec JWT, CRUD complet depuis le navigateur, persistance MongoDB, isolation stricte entre comptes, validation serveur, tests et documentation. Tout le socle obligatoire est réalisé et recetté ; j'ai ensuite ajouté les bonus B1 (priorité, filtres, compteurs) et B4 (statistiques hebdomadaires) du livret, chacun avec ses critères d'acceptation et ses tests dédiés, sans toucher aux cinq routes obligatoires. »
 
 ### 2 min — Architecture et chemin d'une requête
 
@@ -33,6 +33,7 @@ Phrase clé : « routes → contrôleur → validateur → service → modèle ;
 2. Créer une tâche avec description et échéance → message de succès, badge de statut.
 3. Ouvrir le détail, modifier le statut → « Tâche mise à jour ». Recharger la page : la donnée vient du serveur.
 3 bis. (Bonus B1, 20 s) Revenir à la liste : compteurs en haut, filtrer par statut puis par priorité, montrer l'URL `?status=done&priority=high` et le bouton Réinitialiser.
+3 ter. (Bonus B4, 20 s) Ouvrir « Statistiques » : taux global, barre de la semaine courante, survoler une barre (info-bulle), passer à 4 semaines ; dans le détail de la tâche terminée, montrer « Terminée le ».
 4. Supprimer : montrer la confirmation, annuler, puis confirmer → liste vide.
 5. Dans la fenêtre privée, compte B : sa liste ne voit pas les tâches de A. Coller l'URL d'une tâche de A → « Tâche introuvable » (404 côté API).
 6. Montrer Swagger : `GET /api/tasks` avec le token de B → `{"items":[]}`.
@@ -55,7 +56,7 @@ Si le temps manque : sauter l'étape 6.
 
 ### 1 min — Limites et améliorations
 
-Bonus réalisé : B1 (champ `priority`, filtres `status`/`priority`/`due` sur la liste, route `/api/tasks/stats`), avec critères d'acceptation dans le README et 37 tests ; les compteurs sont calculés en JavaScript, pas en agrégation MongoDB (choix de lisibilité). Limites : pas de révocation de JWT ni de refresh token ; jeton en `localStorage` ; pas de limitation de débit sur la connexion ; pas de pagination ; pas de tests automatisés du front (parcours vérifié manuellement) ; déploiement non réalisé faute de modalité confirmée. Pistes : cookie `httpOnly` + CSRF, rate limiting, agrégation `$group` pour les compteurs, bonus B4 (statistiques hebdomadaires).
+Bonus réalisés : B1 (champ `priority`, filtres `status`/`priority`/`due`, route `/api/tasks/stats`) et B4 (`completedAt` posé par le serveur, route `/api/tasks/stats/weekly`, calcul documenté dans un module pur testé unitairement, page Statistiques), chacun avec critères d'acceptation dans le README et tests dédiés. Les agrégations sont calculées en JavaScript, pas en pipeline MongoDB (choix de lisibilité et de testabilité). Limites : pas de révocation de JWT ni de refresh token ; jeton en `localStorage` ; pas de limitation de débit sur la connexion ; pas de pagination ; `completedAt` approximé par `updatedAt` pour les tâches terminées avant B4. Pistes : cookie `httpOnly` + CSRF, rate limiting, agrégation `$group` si le volume grandit, bonus B3 (heatmap des réalisations).
 
 ## Questions probables et éléments de réponse
 
@@ -78,6 +79,10 @@ Bonus réalisé : B1 (champ `priority`, filtres `status`/`priority`/`due` sur la
 | (B1) Pourquoi un paramètre de requête inconnu donne-t-il 400 ? | Même philosophie que pour les corps JSON : liste blanche. Une faute de frappe dans un filtre ne doit pas renvoyer silencieusement toutes les tâches. |
 | (B1) Pourquoi `/tasks/stats` est-elle déclarée avant `/tasks/:id` ? | Express teste les routes dans l'ordre : sinon « stats » serait pris pour un identifiant et refusé par `validateObjectId` (400). |
 | (B1) Le bonus a-t-il modifié le contrat de base ? | Non : sans paramètre, `GET /api/tasks` renvoie exactement `{"items":[…]}` ; `priority` est une propriété supplémentaire non sensible, autorisée par le livret ; la suite de tests du MVP passe inchangée. |
+| (B4) Comment sais-tu quand une tâche a été terminée ? | Le service pose `completedAt` au passage à `done` (et le remet à `null` à la réouverture). `updatedAt` ne suffit pas : il bouge à chaque modification. Le client ne peut pas fournir ce champ (400). |
+| (B4) Comment définis-tu le taux de complétion d'une semaine ? | Tâches terminées pendant la semaine ÷ tâches ouvertes au cours de la semaine (créées au plus tard le dimanche, non terminées avant le lundi). Une tâche terminée pendant S était ouverte pendant S, donc le taux est entre 0 et 1 ; `null` si rien n'était ouvert. |
+| (B4) Pourquoi un module pur pour le calcul ? | `utils/weeklyStats.js` ne touche pas à la base : 13 tests unitaires vérifient les définitions, les bornes et le fuseau horaire sans MongoDB ; le service ne fait que charger les tâches et appeler ce module. |
+| (B4) Pourquoi `updateTask` fait-il deux requêtes au lieu d'un `findOneAndUpdate` ? | Il faut connaître l'état précédent pour gérer `completedAt`, et `save()` rejoue les validateurs. Le volume ne justifie pas une mise à jour atomique par pipeline. |
 
 ## Questions pour vérifier sa propre compréhension (s'entraîner à y répondre sans notes)
 

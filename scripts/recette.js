@@ -211,6 +211,32 @@ async function resetTasks(token) {
   report('B1 : les compteurs de B ne voient pas les tâches de A', statsB.status === 200 && statsB.json?.total === 0, JSON.stringify(statsB.json));
   await call('DELETE', `/tasks/${highTask.json.id}`, { token: tokenA });
 
+  // --- Bonus B4 : completedAt et statistiques hebdomadaires ---
+  const doneTask = await call('GET', `/tasks/${taskId}`, { token: tokenA });
+  report('B4 : une tâche passée à done porte un completedAt', typeof doneTask.json?.completedAt === 'string', String(doneTask.json?.completedAt));
+  const reopened = await call('PATCH', `/tasks/${taskId}`, { token: tokenA, body: { status: 'todo' } });
+  report('B4 : rouvrir la tâche remet completedAt à null', reopened.status === 200 && reopened.json?.completedAt === null, String(reopened.json?.completedAt));
+  const redone = await call('PATCH', `/tasks/${taskId}`, { token: tokenA, body: { status: 'done' } });
+  report('B4 : repasser à done pose un nouveau completedAt', redone.status === 200 && typeof redone.json?.completedAt === 'string');
+  const cheat = await call('PATCH', `/tasks/${taskId}`, { token: tokenA, body: { completedAt: '2020-01-01T00:00:00Z' } });
+  report('B4 : completedAt fourni par le client → 400 INVALID_INPUT', isError(cheat, 400, 'INVALID_INPUT'), String(cheat.status));
+  const weeklyRes = await call('GET', '/tasks/stats/weekly?weeks=4', { token: tokenA });
+  const weeklyOk =
+    weeklyRes.status === 200 &&
+    Array.isArray(weeklyRes.json?.series) &&
+    weeklyRes.json.series.length === 4 &&
+    weeklyRes.json.overall?.total === 1 &&
+    weeklyRes.json.overall?.done === 1 &&
+    weeklyRes.json.overall?.completionRate === 1 &&
+    weeklyRes.json.series[3].completed >= 1;
+  report('B4 : GET /tasks/stats/weekly?weeks=4 → 4 semaines, taux global 1, tâche comptée cette semaine', weeklyOk, JSON.stringify(weeklyRes.json?.overall));
+  const weeklyB = await call('GET', '/tasks/stats/weekly?weeks=4', { token: tokenB });
+  report('B4 : les statistiques de B ne voient pas les tâches de A', weeklyB.status === 200 && weeklyB.json?.overall?.total === 0 && weeklyB.json.overall.completionRate === null);
+  const badWeeks = await call('GET', '/tasks/stats/weekly?weeks=0', { token: tokenA });
+  const badParam = await call('GET', '/tasks/stats/weekly?weeks=4&from=2026', { token: tokenA });
+  report('B4 : weeks=0 → 400 INVALID_INPUT', isError(badWeeks, 400, 'INVALID_INPUT'), String(badWeeks.status));
+  report('B4 : paramètre inconnu → 400 INVALID_INPUT', isError(badParam, 400, 'INVALID_INPUT'), String(badParam.status));
+
   // --- Bilan ---
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} points OK`);

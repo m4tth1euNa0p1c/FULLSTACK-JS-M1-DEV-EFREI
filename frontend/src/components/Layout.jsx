@@ -21,6 +21,7 @@ export default function Layout() {
                   Mes tâches
                 </NavLink>
                 <NavLink to="/tasks/new">Nouvelle tâche</NavLink>
+                <NavLink to="/stats">Statistiques</NavLink>
                 <span className="user-email">{user.email}</span>
                 <button type="button" className="btn" onClick={() => logout('manual')}>
                   Se déconnecter

@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "TaskFlow API",
-    "version": "1.1.0",
-    "description": "API de gestion de tâches personnelles (TP Full Stack JS, EFREI M1). Toutes les routes sont préfixées par /api. Les routes /api/tasks exigent un JWT transmis dans l'en-tête Authorization: Bearer <token>. Chaque compte ne voit que ses propres tâches. Bonus B1 : champ priority, filtres de liste (status, priority, due, today) et compteurs (/tasks/stats)."
+    "version": "1.2.0",
+    "description": "API de gestion de tâches personnelles (TP Full Stack JS, EFREI M1). Toutes les routes sont préfixées par /api. Les routes /api/tasks exigent un JWT transmis dans l'en-tête Authorization: Bearer <token>. Chaque compte ne voit que ses propres tâches. Bonus B1 : champ priority, filtres de liste (status, priority, due, today) et compteurs (/tasks/stats). Bonus B4 : champ serveur completedAt et statistiques hebdomadaires (/tasks/stats/weekly)."
   },
   "servers": [
     { "url": "http://localhost:3000/api", "description": "Développement local" }
@@ -12,7 +12,8 @@
     { "name": "Santé", "description": "Supervision" },
     { "name": "Authentification", "description": "Inscription et connexion (routes publiques)" },
     { "name": "Tâches", "description": "CRUD des tâches du compte connecté (JWT requis)" },
-    { "name": "Bonus B1", "description": "Priorité, filtres et compteurs (routes additionnelles, le CRUD de base reste inchangé)" }
+    { "name": "Bonus B1", "description": "Priorité, filtres et compteurs (routes additionnelles, le CRUD de base reste inchangé)" },
+    { "name": "Bonus B4", "description": "Statistiques hebdomadaires : taux de complétion et évolution par semaine" }
   ],
   "components": {
     "securitySchemes": {
@@ -91,6 +92,7 @@
           "priority": { "$ref": "#/components/schemas/TaskPriority" },
           "description": { "type": "string", "example": "Plan et données" },
           "dueDate": { "type": "string", "nullable": true, "example": "2026-10-05" },
+          "completedAt": { "type": "string", "format": "date-time", "nullable": true, "description": "Bonus B4. Posé par le serveur au passage à done, remis à null si la tâche est rouverte. Jamais accepté dans un corps de requête (400)." },
           "createdAt": { "type": "string", "format": "date-time" },
           "updatedAt": { "type": "string", "format": "date-time" }
         }
@@ -123,6 +125,46 @@
             }
           },
           "overdue": { "type": "integer", "description": "Échéance antérieure à la date de référence et statut différent de done.", "example": 1 }
+        }
+      },
+      "WeeklyStats": {
+        "type": "object",
+        "description": "Bonus B4. Semaines ISO (lundi → dimanche), la dernière contenant la date de référence. created = tâches créées pendant la semaine ; completed = tâches passées à done pendant la semaine ; open = tâches créées au plus tard le dernier jour de la semaine et non terminées avant son premier jour ; completionRate = completed / open (null si open = 0). Les instants sont rattachés à une date civile selon tzOffset.",
+        "properties": {
+          "weeks": { "type": "integer", "example": 8 },
+          "today": { "type": "string", "example": "2026-10-07" },
+          "tzOffset": { "type": "integer", "example": -120 },
+          "series": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "weekStart": { "type": "string", "example": "2026-10-05" },
+                "weekEnd": { "type": "string", "example": "2026-10-11" },
+                "created": { "type": "integer", "example": 2 },
+                "completed": { "type": "integer", "example": 1 },
+                "open": { "type": "integer", "example": 3 },
+                "completionRate": { "type": "number", "nullable": true, "example": 0.3333 }
+              }
+            }
+          },
+          "overall": {
+            "type": "object",
+            "properties": {
+              "total": { "type": "integer", "example": 5 },
+              "done": { "type": "integer", "example": 3 },
+              "completionRate": { "type": "number", "nullable": true, "example": 0.6 }
+            }
+          },
+          "trend": {
+            "type": "object",
+            "description": "Évolution entre la semaine précédente et la semaine courante.",
+            "properties": {
+              "currentRate": { "type": "number", "nullable": true, "example": 0.3333 },
+              "previousRate": { "type": "number", "nullable": true, "example": 0.5 },
+              "delta": { "type": "number", "nullable": true, "example": -0.1667 }
+            }
+          }
         }
       },
       "Error": {
@@ -256,6 +298,23 @@
         "parameters": [{ "$ref": "#/components/parameters/TodayQuery" }],
         "responses": {
           "200": { "description": "Compteurs", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TaskStats" } } } },
+          "400": { "$ref": "#/components/responses/InvalidInput" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/tasks/stats/weekly": {
+      "get": {
+        "tags": ["Bonus B4"],
+        "summary": "Taux de complétion hebdomadaire et évolution par semaine",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "weeks", "in": "query", "required": false, "description": "Nombre de semaines renvoyées, de 1 à 26 (8 par défaut).", "schema": { "type": "integer", "minimum": 1, "maximum": 26, "default": 8 } },
+          { "$ref": "#/components/parameters/TodayQuery" },
+          { "name": "tzOffset", "in": "query", "required": false, "description": "Décalage du client en minutes, convention JavaScript getTimezoneOffset (UTC − locale, Paris en été = -120). Par défaut 0 : dates lues en UTC.", "schema": { "type": "integer", "minimum": -840, "maximum": 840, "default": 0 } }
+        ],
+        "responses": {
+          "200": { "description": "Séries hebdomadaires", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WeeklyStats" } } } },
           "400": { "$ref": "#/components/responses/InvalidInput" },
           "401": { "$ref": "#/components/responses/Unauthorized" }
         }

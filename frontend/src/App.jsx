@@ -7,6 +7,7 @@ import RegisterPage from './pages/RegisterPage';
 import TasksPage from './pages/TasksPage';
 import NewTaskPage from './pages/NewTaskPage';
 import TaskDetailPage from './pages/TaskDetailPage';
+import StatsPage from './pages/StatsPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/tasks/new" element={<NewTaskPage />} />
           <Route path="/tasks/:id" element={<TaskDetailPage />} />
+          <Route path="/stats" element={<StatsPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />
