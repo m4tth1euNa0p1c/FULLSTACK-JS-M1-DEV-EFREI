@@ -46,7 +46,7 @@ jobs:
       - uses: docker/setup-buildx-action@v3
 
       - name: Publier l'image de l'API
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: backend
           push: true
@@ -60,7 +60,7 @@ jobs:
           cache-to: type=gha,scope=api,mode=max
 
       - name: Publier l'image du front
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: frontend
           push: true
