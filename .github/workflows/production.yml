@@ -37,7 +37,7 @@ jobs:
           echo "api=ghcr.io/${owner}/taskflow-api" >> "$GITHUB_OUTPUT"
           echo "web=ghcr.io/${owner}/taskflow-web" >> "$GITHUB_OUTPUT"
 
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
