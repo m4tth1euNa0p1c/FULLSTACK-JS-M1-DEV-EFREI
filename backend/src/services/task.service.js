@@ -27,7 +27,7 @@ async function updateTask(ownerId, taskId, changes) {
   const task = await Task.findOneAndUpdate(
     { _id: taskId, ownerId },
     { $set: changes },
-    { new: true, runValidators: true },
+    { returnDocument: 'after', runValidators: true },
   );
   if (!task) throw notFound('Tâche introuvable');
   return task.toJSON();
