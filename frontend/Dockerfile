@@ -3,7 +3,7 @@
 # ce qui garde le front et l'API sur la même origine (pas de CORS à configurer).
 
 # --- Étape 1 : construction ---
-FROM node:20-bookworm-slim AS build
+FROM node:25-bookworm-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
