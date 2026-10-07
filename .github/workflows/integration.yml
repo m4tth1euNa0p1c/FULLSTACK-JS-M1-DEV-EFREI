@@ -1,0 +1,71 @@
+name: Intégration
+
+# Environnement d'intégration éphémère : la pile complète (MongoDB, API, front nginx) est
+# construite depuis les sources et démarrée dans le runner, puis recettée par le script de
+# contrat API et par la suite Playwright de bout en bout. Rien n'est déployé.
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-int:
+    name: Pile Docker + recette API + Playwright
+    runs-on: ubuntu-latest
+    environment: integration
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Démarrer la pile d'intégration
+        run: docker compose -f infra/compose/docker-compose.int.yml up -d --build --wait
+        env:
+          JWT_SECRET: ${{ secrets.INT_JWT_SECRET || 'cle-integration-ci-non-secrete' }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Installer Playwright
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Recette automatisée du contrat API (60 points)
+        run: node scripts/recette.js
+        env:
+          API_URL: http://localhost:3000/api
+
+      - name: Tests de bout en bout Playwright
+        working-directory: e2e
+        run: npm test
+        env:
+          E2E_BASE_URL: http://localhost:8080
+          CI: "true"
+
+      - name: Publier le rapport Playwright
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-integration
+          path: e2e/playwright-report
+          retention-days: 14
+
+      - name: Journaux des conteneurs
+        if: failure()
+        run: docker compose -f infra/compose/docker-compose.int.yml logs --no-color
+
+      - name: Arrêter la pile
+        if: always()
+        run: docker compose -f infra/compose/docker-compose.int.yml down -v
