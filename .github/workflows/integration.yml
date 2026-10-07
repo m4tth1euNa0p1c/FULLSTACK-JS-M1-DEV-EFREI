@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       - name: Démarrer la pile d'intégration
         run: docker compose -f infra/compose/docker-compose.int.yml up -d --build --wait
