@@ -30,6 +30,7 @@ Le MVP du livret est complet. Les **bonus B1** (priorité, filtres et compteurs)
 | --- | --- | --- |
 | Langage | JavaScript (CommonJS côté API, modules ES côté front) | Node.js 20.19.5, npm 11.6 |
 | Front-end | React, React Router, Vite | React 19.3, react-router-dom 7.18, Vite 8.3 |
+| Interface | Tailwind CSS (plugin Vite), Lucide (icônes), Playwright (tests de bout en bout) | Tailwind CSS 4, lucide-react, Playwright 1.63 |
 | API | Node.js, Express | Express 5.2 |
 | Base de données | MongoDB, Mongoose | MongoDB 7 (Docker), Mongoose 9.9 (driver mongodb 7.5) |
 | Authentification | bcrypt, jsonwebtoken | bcrypt 6.0, jsonwebtoken 9.0 |
@@ -84,7 +85,7 @@ Générer une clé JWT :
 node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```
 
-`frontend/.env` : `VITE_API_URL` reste vide en développement (Vite relaie `/api` vers l'API). À renseigner seulement si le front construit est servi depuis une autre origine que l'API.
+`frontend/.env` : `VITE_API_URL` reste vide en développement (Vite relaie `/api` vers l'API). À renseigner seulement si le front construit est servi depuis une autre origine que l'API. Pour les démonstrations, `VITE_DEMO_EMAIL` et `VITE_DEMO_PASSWORD` préremplissent le formulaire de connexion (par exemple le compte `recette.a@example.test` créé par `node scripts/recette.js`) ; laisser vides ailleurs qu'en local, le fichier `.env` n'est jamais versionné.
 
 ## 5. MongoDB
 
@@ -222,6 +223,7 @@ Le test d'isolation détecte réellement une régression : retirer `ownerId` du 
 - `dueDate` stockée comme chaîne `YYYY-MM-DD` : c'est une date civile sans heure, la stocker en `Date` introduirait des décalages de fuseau horaire.
 - Express 5 : les promesses rejetées dans les contrôleurs arrivent au gestionnaire d'erreurs sans wrapper.
 - Front : Vite relaie `/api` vers l'API en développement (pas de CORS à gérer), et l'API active quand même `cors` pour un déploiement séparé.
+- Design : style d'outil, à la manière de Notion. Barre latérale grise, contenu blanc, typographie Inter dense, bordures fines, étiquettes de propriétés colorées pour les statuts et priorités (toujours accompagnées d'un libellé), cases à cocher carrées, un seul bleu réservé aux actions, aucun ornement. Tailwind CSS v4 fournit le thème (`@theme`) et les utilitaires ; les composants sont définis dans `@layer components` de `frontend/src/styles.css` et conservent des classes sémantiques qui servent d'accroches aux tests Playwright. Les patterns viennent de shadcn/ui et de 21st.dev, réécrits en JSX puisque le livret impose JavaScript sans TypeScript. Icônes Lucide.
 
 ## 10. Contrat API
 

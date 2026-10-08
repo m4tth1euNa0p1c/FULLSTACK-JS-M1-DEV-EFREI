@@ -11,7 +11,8 @@ export default defineConfig([
     extends: [js.configs.recommended, reactHooks.configs.flat.recommended, reactRefresh.configs.vite],
     languageOptions: {
       ecmaVersion: 2024,
-      globals: globals.browser,
+      // __APP_VERSION__ est injecté par Vite (vite.config.js, option define).
+      globals: { ...globals.browser, __APP_VERSION__: 'readonly' },
       parserOptions: {
         ecmaVersion: 'latest',
         ecmaFeatures: { jsx: true },

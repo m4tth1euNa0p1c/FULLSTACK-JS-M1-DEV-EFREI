@@ -3,12 +3,17 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Alert from '../components/Alert';
 import { useAuth } from '../context/useAuth';
 
+// Compte de démonstration prérempli, uniquement si VITE_DEMO_EMAIL / VITE_DEMO_PASSWORD
+// sont définis dans frontend/.env (fichier local, jamais versionné). Vide sinon.
+const DEMO_EMAIL = import.meta.env.VITE_DEMO_EMAIL ?? '';
+const DEMO_PASSWORD = import.meta.env.VITE_DEMO_PASSWORD ?? '';
+
 export default function LoginPage() {
   const { login, notice, clearNotice } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(DEMO_EMAIL);
+  const [password, setPassword] = useState(DEMO_PASSWORD);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -34,6 +39,9 @@ export default function LoginPage() {
 
       <Alert type="info">{notice}</Alert>
       <Alert type="error">{error}</Alert>
+      {DEMO_EMAIL && (
+        <p className="field__hint">Compte de démonstration prérempli, il suffit de valider.</p>
+      )}
 
       <form className="form" onSubmit={handleSubmit}>
         <div className="field">

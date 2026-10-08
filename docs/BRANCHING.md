@@ -6,10 +6,10 @@
 | --- | --- | --- | --- |
 | `main` | **Production.** Ne reçoit que des fusions depuis `develop` (releases). Chaque release est taguée `rendu-vN`. | Pull request obligatoire, CI verte | `CI`, puis `Production` (images GHCR, déploiement Cloud Run si configuré, tests de fumée) |
 | `develop` | **Intégration.** Reçoit les fonctionnalités terminées. Toujours déployable. | Pull request obligatoire, CI verte | `CI` et `Intégration` (pile Docker + recette API + Playwright) |
-| `feature/<sujet>` | Une fonctionnalité ou un bonus (ex. `feature/b4-statistiques`). | — | `CI` et `Intégration` sur sa pull request |
-| `ci/<sujet>`, `chore/<sujet>`, `fix/<sujet>` | Outillage, maintenance, correction. | — | idem |
+| `feature/<ticket>-<sujet>` | Une fonctionnalité ou un bonus (ex. `feature/29-refonte-design-notion`). | — | `CI` et `Intégration` sur sa pull request |
+| `ci/<ticket>-<sujet>`, `chore/<ticket>-<sujet>`, `fix/<ticket>-<sujet>` | Outillage, maintenance, correction. | — | idem |
 
-Les branches de travail partent de `develop` et y reviennent par pull request. Elles sont supprimées après fusion. Personne ne pousse directement sur `main` ni sur `develop`.
+Les branches de travail partent de `develop` et y reviennent par pull request. Elles sont **conservées après fusion** pour rester visibles sur GitHub comme trace de l'étape (la pull request reste de toute façon le point d'entrée). Nommage : `type/<numéro de ticket>-<sujet>`, par exemple `feature/29-refonte-design-notion` ; les premières branches (`feature/b4-statistiques`, `feature/e2e-conteneurs`, `chore/recette-rendu-v3`, `feature/design-epure`, `chore/mises-a-jour-dependabot`) ont été créées avant cette règle et ont été restaurées depuis leurs pull requests. Personne ne pousse directement sur `main` ni sur `develop`.
 
 > Les règles de protection de branche (pull request obligatoire, vérifications requises) se configurent dans *Settings → Branches*. Sur un dépôt privé, GitHub ne les propose qu'avec un plan payant ; à défaut, la règle est appliquée par discipline et vérifiable dans l'historique (chaque commit de `main` et `develop` est un commit de fusion de pull request).
 

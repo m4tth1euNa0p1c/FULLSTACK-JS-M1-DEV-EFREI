@@ -4,7 +4,7 @@
 
 - Terminal 1 : `docker compose up -d` puis `npm run dev:backend` (attendre `MongoDB connecté`).
 - Terminal 2 : `npm run dev:frontend`.
-- Onglets ouverts : http://localhost:5173 (compte A déjà créé, un compte B prêt dans une fenêtre privée), http://localhost:3000/api/docs, VS Code sur `backend/src`.
+- Onglets ouverts : http://localhost:5173 (le formulaire de connexion est prérempli avec le compte A si `frontend/.env` définit `VITE_DEMO_EMAIL` / `VITE_DEMO_PASSWORD` ; un compte B prêt dans une fenêtre privée), http://localhost:3000/api/docs (Swagger), VS Code sur `backend/src`.
 - Terminal 3 : `node scripts/recette.js` (à lancer pendant la partie sécurité) et `npm test --prefix backend`.
 - Avoir le SHA du rendu sous la main : `git rev-list -n 1 rendu-v3` (version complète) ; `rendu-v1` est le MVP seul, `rendu-v2` le MVP + B1.
 
