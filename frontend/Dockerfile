@@ -12,7 +12,7 @@ COPY . .
 RUN npm run build
 
 # --- Étape 2 : exécution ---
-FROM nginx:1.27-alpine
+FROM nginx:1.31-alpine
 # Variables substituées au démarrage dans le template (mécanisme natif de l'image nginx).
 ENV PORT=8080 \
     API_UPSTREAM=http://api:3000
