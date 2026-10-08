@@ -218,7 +218,7 @@ export default function TasksPage() {
           </p>
           <ul className="task-list" aria-label="Liste des tâches">
             {items.map((task) => (
-              <li key={task.id} className="card task-item">
+              <li key={task.id} className="task-item">
                 <Link to={`/tasks/${task.id}`} className="task-item__title">
                   {task.title}
                 </Link>
