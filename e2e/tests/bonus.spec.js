@@ -48,7 +48,8 @@ test.describe('Bonus B4 : statistiques hebdomadaires', () => {
     await createTask(page, { title: 'Faite', status: 'done' });
     await createTask(page, { title: 'En cours', status: 'doing' });
 
-    await page.getByRole('link', { name: 'Statistiques' }).click();
+    // Le lien existe aussi dans le pied de page : on vise la barre de navigation.
+    await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Statistiques' }).click();
     await page.waitForURL('**/stats');
     await page.locator('.chart__bars .bar').first().waitFor();
 

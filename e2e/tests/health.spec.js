@@ -27,8 +27,16 @@ test.describe('Santé de la plateforme @smoke', () => {
     expect(doc.paths).toHaveProperty('/tasks');
   });
 
-  test('un visiteur non connecté est redirigé vers la page de connexion', async ({ page }) => {
+  test("la page d'accueil présente le produit et invite à créer un compte", async ({ page }) => {
     await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Vos tâches, rien que les vôtres.');
+    await expect(page.getByRole('link', { name: 'Créer un compte' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Se connecter' })).toBeVisible();
+    await expect(page.getByRole('contentinfo')).toContainText('Version');
+  });
+
+  test('un visiteur non connecté qui ouvre ses tâches est redirigé vers la connexion', async ({ page }) => {
+    await page.goto('/tasks');
     await page.waitForURL('**/login');
     await expect(page.getByRole('heading', { name: 'Connexion' })).toBeVisible();
     await expect(page.getByLabel('Email')).toBeVisible();

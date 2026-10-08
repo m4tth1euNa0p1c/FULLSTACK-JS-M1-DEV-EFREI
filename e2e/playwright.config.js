@@ -8,11 +8,20 @@ import { defineConfig, devices } from '@playwright/test';
  *   - Développement local       : http://localhost:5173 (Vite + API sur :3000)
  *   - Production                : URL du service web déployé, avec --grep @smoke
  *
+ * En local, le navigateur s'ouvre (mode visible, Chrome installé, léger ralenti pour
+ * suivre le scénario) ; dans GitHub Actions (CI=true) tout tourne en headless sur Chromium.
+ *   E2E_HEADLESS=1          force le mode headless en local
+ *   E2E_BROWSER_CHANNEL=    chrome (défaut local) | msedge | chromium (vide)
+ *   E2E_SLOWMO=             millisecondes entre deux actions (défaut 80 en local, 0 en CI)
+ *
  * Les tests @smoke ne créent aucune donnée : ils peuvent tourner contre la production.
  * Les autres tests créent des comptes jetables (e2e.<horodatage>@example.test).
  */
 const baseURL = process.env.E2E_BASE_URL || 'http://localhost:5173';
 const isCI = Boolean(process.env.CI);
+const headless = isCI || process.env.E2E_HEADLESS === '1';
+const channel = isCI ? undefined : process.env.E2E_BROWSER_CHANNEL ?? 'chrome';
+const slowMo = Number(process.env.E2E_SLOWMO ?? (isCI ? 0 : 80));
 
 export default defineConfig({
   testDir: './tests',
@@ -28,12 +37,13 @@ export default defineConfig({
   outputDir: 'test-results',
   use: {
     baseURL,
+    headless,
     locale: 'fr-FR',
     timezoneId: 'Europe/Paris',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    // En local, E2E_BROWSER_CHANNEL=chrome utilise le Chrome installé (pas de téléchargement).
-    ...(process.env.E2E_BROWSER_CHANNEL ? { channel: process.env.E2E_BROWSER_CHANNEL } : {}),
+    launchOptions: { slowMo },
+    ...(channel ? { channel } : {}),
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 });
