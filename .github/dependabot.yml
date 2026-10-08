@@ -35,9 +35,16 @@ updates:
       interval: weekly
     target-branch: develop
     labels: [infra]
+    ignore:
+      # Node 20 LTS partout (poste, CI, images) : pas de saut de version majeure automatique.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker
     directory: /frontend
     schedule:
       interval: weekly
     target-branch: develop
     labels: [infra]
+    ignore:
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
