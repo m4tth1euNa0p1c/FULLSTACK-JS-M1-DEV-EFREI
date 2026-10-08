@@ -66,7 +66,7 @@ export default function StatsPage() {
     <section aria-labelledby="stats-title">
       <div className="page-header">
         <h1 id="stats-title">Statistiques</h1>
-        <Link to="/tasks" className="btn">
+        <Link to="/tasks" className="btn btn--ghost">
           Retour aux tâches
         </Link>
       </div>
@@ -183,7 +183,7 @@ export default function StatsPage() {
                   {data.series.map((week, index) => (
                     <tr key={week.weekStart} className={index === data.series.length - 1 ? 'table__current' : ''}>
                       <th scope="row">
-                        {formatShortDate(week.weekStart)} → {formatShortDate(week.weekEnd)}
+                        du {formatShortDate(week.weekStart)} au {formatShortDate(week.weekEnd)}
                       </th>
                       <td>{week.created}</td>
                       <td>{week.completed}</td>
