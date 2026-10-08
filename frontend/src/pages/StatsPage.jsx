@@ -67,7 +67,7 @@ export default function StatsPage() {
       <div className="page-header">
         <h1 id="stats-title">Statistiques</h1>
         <Link to="/tasks" className="btn">
-          ← Mes tâches
+          Retour aux tâches
         </Link>
       </div>
 
@@ -143,7 +143,9 @@ export default function StatsPage() {
                         {week.completionRate === null ? (
                           <span className="bar__empty" aria-hidden="true" />
                         ) : (
-                          <span className="bar__fill" style={{ height: `${Math.max(height, 2)}%` }} aria-hidden="true" />
+                          <span className="bar__fill" style={{ height: `${Math.max(height, 2)}%` }} aria-hidden="true">
+                            {isCurrent && <span className="bar__value">{formatPercent(week.completionRate)}</span>}
+                          </span>
                         )}
                         <span className="bar__tooltip" role="tooltip">
                           <strong>{formatPercent(week.completionRate)}</strong>
@@ -154,11 +156,6 @@ export default function StatsPage() {
                           {week.created} créée{week.created > 1 ? 's' : ''}
                         </span>
                       </button>
-                      {isCurrent && week.completionRate !== null && (
-                        <span className="bar__value" aria-hidden="true">
-                          {formatPercent(week.completionRate)}
-                        </span>
-                      )}
                       <span className="bar__label" aria-hidden="true">
                         {formatShortDate(week.weekStart)}
                       </span>

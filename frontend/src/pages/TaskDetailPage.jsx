@@ -119,7 +119,7 @@ export default function TaskDetailPage() {
     <section className="card" aria-labelledby="task-title">
       <div className="page-header">
         <h1 id="task-title">{editing ? 'Modifier la tâche' : task.title}</h1>
-        <Link to="/tasks">← Mes tâches</Link>
+        <Link to="/tasks">Retour aux tâches</Link>
       </div>
 
       <Alert type="success">{success}</Alert>
