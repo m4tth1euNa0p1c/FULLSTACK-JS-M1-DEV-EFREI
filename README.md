@@ -222,7 +222,7 @@ Le test d'isolation détecte réellement une régression : retirer `ownerId` du 
 - `dueDate` stockée comme chaîne `YYYY-MM-DD` : c'est une date civile sans heure, la stocker en `Date` introduirait des décalages de fuseau horaire.
 - Express 5 : les promesses rejetées dans les contrôleurs arrivent au gestionnaire d'erreurs sans wrapper.
 - Front : Vite relaie `/api` vers l'API en développement (pas de CORS à gérer), et l'API active quand même `cors` pour un déploiement séparé.
-- Design : fond papier chaud, titres et chiffres clés en serif (Newsreader), interface en sans humaniste (Manrope), un seul accent terre cuite pour les actions principales, statuts et priorités signalés par une pastille et un libellé (jamais par la couleur seule), liste de tâches en registre à filets fins, focus clavier visible, mouvement réduit respecté. Tout est porté par des jetons CSS dans `frontend/src/styles.css`.
+- Design : épuré et sobre. Page gris très clair, tuiles blanches sans bordure, typographie système (SF Pro sur macOS, Inter en repli), titres serrés, un seul accent bleu réservé aux actions principales, statuts et priorités signalés par une pastille et un libellé (jamais par la couleur seule), liste de tâches groupée à séparateurs fins, focus clavier visible, mouvement réduit respecté. Tout est porté par des jetons CSS dans `frontend/src/styles.css`.
 
 ## 10. Contrat API
 
