@@ -110,7 +110,7 @@ jobs:
 
       - name: Déployer l'API
         id: api
-        uses: google-github-actions/deploy-cloudrun@v2
+        uses: google-github-actions/deploy-cloudrun@v3
         with:
           service: taskflow-api
           region: ${{ vars.GCP_REGION }}
@@ -127,7 +127,7 @@ jobs:
 
       - name: Déployer le front
         id: web
-        uses: google-github-actions/deploy-cloudrun@v2
+        uses: google-github-actions/deploy-cloudrun@v3
         with:
           service: taskflow-web
           region: ${{ vars.GCP_REGION }}
