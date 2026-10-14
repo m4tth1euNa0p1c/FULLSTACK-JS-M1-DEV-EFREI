@@ -161,7 +161,7 @@ jobs:
           CI: "true"
       - name: Publier le rapport Playwright
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report-production
           path: e2e/playwright-report
